@@ -50,32 +50,32 @@ class RGBShapeDetection:
         return np.array(neighbours)
     
 
-def find_HSV_colour_in_image(self, img):
-    
 
-    hsv_img = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+    def find_HSV_colour_in_image(self, img):
+        
+        hsv_img = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
-    color_masks = {
-        "red": cv.inRange(hsv_img, np.array([0, 30, 30]), np.array([10, 255, 255])),
-        "orange": cv.inRange(hsv_img, np.array([10, 30, 30]), np.array([25, 255, 255])),
-        "yellow": cv.inRange(hsv_img, np.array([25, 30, 30]), np.array([35, 255, 255])),
-        "green": cv.inRange(hsv_img, np.array([35, 30, 30]), np.array([75, 255, 255])),
-        "aqua": cv.inRange(hsv_img, np.array([75, 30, 30]), np.array([85, 255, 255])),
-        "cyan": cv.inRange(hsv_img, np.array([85, 30, 30]), np.array([95, 255, 255])),
-        "light_blue": cv.inRange(hsv_img, np.array([95, 30, 30]), np.array([110, 255, 255])),
-        "blue": cv.inRange(hsv_img, np.array([110, 30, 30]), np.array([130, 255, 255])),
-        "purple": cv.inRange(hsv_img, np.array([130, 30, 30]), np.array([140, 255, 255])),
-        "magenta": cv.inRange(hsv_img, np.array([140, 30, 30]), np.array([155, 255, 255])),
-        "pink": cv.inRange(hsv_img, np.array([155, 30, 30]), np.array([170, 255, 255])),
-        "red": cv.inRange(hsv_img, np.array([170, 30, 30]), np.array([180, 255, 255])),
-        "black": cv.inRange(hsv_img, np.array([0, 0, 0]), np.array([180, 255, 30])),
-        "white": cv.inRange(hsv_img, np.array([0, 0, 30]), np.array([180, 30, 255]))
-    }
+        color_masks = {
+            "orange": cv.inRange(hsv_img, np.array([10, 30, 30]), np.array([25, 255, 255])),
+            "yellow": cv.inRange(hsv_img, np.array([25, 30, 30]), np.array([35, 255, 255])),
+            "green": cv.inRange(hsv_img, np.array([35, 30, 30]), np.array([75, 255, 255])),
+            "aqua": cv.inRange(hsv_img, np.array([75, 30, 30]), np.array([85, 255, 255])),
+            "cyan": cv.inRange(hsv_img, np.array([85, 30, 30]), np.array([95, 255, 255])),
+            "light_blue": cv.inRange(hsv_img, np.array([95, 30, 30]), np.array([110, 255, 255])),
+            "blue": cv.inRange(hsv_img, np.array([110, 30, 30]), np.array([130, 255, 255])),
+            "purple": cv.inRange(hsv_img, np.array([130, 30, 30]), np.array([140, 255, 255])),
+            "magenta": cv.inRange(hsv_img, np.array([140, 30, 30]), np.array([155, 255, 255])),
+            "pink": cv.inRange(hsv_img, np.array([155, 30, 30]), np.array([170, 255, 255])),
+            "red_back": cv.inRange(hsv_img, np.array([0, 30, 30]), np.array([10, 255, 255])),
+            "red_front": cv.inRange(hsv_img, np.array([170, 30, 30]), np.array([180, 255, 255])),
+            "black": cv.inRange(hsv_img, np.array([0, 0, 0]), np.array([180, 255, 30])),
+            "white": cv.inRange(hsv_img, np.array([0, 0, 30]), np.array([180, 30, 255]))
+        }
 
-    for color, mask in color_masks.items():
-        img[mask > 0] = self.index_bgr[color]
+        for color, mask in color_masks.items():
+            img[mask > 0] = self.index_bgr[color]
 
-    return img              
+        return img            
 
 
     def find_RGB_colour_in_image(self, img):
@@ -198,9 +198,9 @@ def find_HSV_colour_in_image(self, img):
                 if not np.array_equal(each, id):
                     counter += 1
         
-        return counter >= 3 and counter <= 5
+        return counter >= threshold_start and counter <= threshold_end
 
-    def find_all_shape_edges(self, filtered_img):
+    def find_all_shape_edges(self, filtered_img, threshold_start, threshold_end):
         
         edge_colours = {}
         for k in self.index_bgr.keys():
@@ -210,7 +210,7 @@ def find_HSV_colour_in_image(self, img):
         for i in range(len(filtered_img)):
             for j in range(len(filtered_img[i])):
                 ninebynine = self.find_pixel_neighbours(filtered_img, i, j)
-                if self.is_edge_of_shape(ninebynine):
+                if self.is_edge_of_shape(ninebynine, threshold_start, threshold_end):
                     colour_edges[i][j] = filtered_img[i][j]
                     edge_colours[self.reversed_index_bgr[str(filtered_img[i][j])]].append((i, j))
 

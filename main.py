@@ -84,6 +84,23 @@ class DivingVisualTracker:
         i = self.videoReading.get_picture__feed_source(path)
         self.currentframe = i
         self.currentPicture = i
+
+        self.current_shape_indexes = {
+            "black": 0,
+            "white": 0,
+            "red": 0,
+            "green": 0,
+            "blue": 0,
+            "light blue": 0,
+            "cyan": 0,
+            "aqua": 0,
+            "pink": 0,
+            "magenta": 0,
+            "purple": 0,
+            "light green": 0,
+            "yellow": 0,
+            "orange": 0}
+
         return i
 
     def __del__(self):

@@ -1,4 +1,3 @@
-
 from image_backend.image_processing_main import VideoReader
 from image_analysis.image_analysis_main import ImageAnalysisMain
 
@@ -12,13 +11,19 @@ import threading
 import _thread
 
 class DivingVisualTracker:
-    def __init__(self):
-        self.id = 0
+    def __init__(self, id:int=1):
+        self.id = id
+        
+        #Other classes
         self.videoReading = VideoReader("")
         self.videoAnalysis = ImageAnalysisMain()
-        self.frames = None
+
         self.currentframe = None
-        self.current_frame_index = 0  # Replace this with the appropriate initialization
+        #Display placeholers
+        self.reference_frame = None
+        self.shape_frame = None
+
+        #Keep track of position in space
         self.current_shape_indexes = {
             "black": 0,
             "white": 0,
@@ -52,21 +57,20 @@ class DivingVisualTracker:
             "yellow": np.array([0, 255, 255]),
             "orange": np.array([0, 165, 255])
         }
-        #@TODO Make GUI
 
     def start_shape_detetion(self, first_frame: np.array) -> None:
         self.id = 1
         self.videoAnalysis.read_frame(first_frame)
         if 0 == self.videoAnalysis.start_RGB_shape_detection(False, [], 5, 5, 3):
-            self.frames = self.videoAnalysis.frames_display
+            self.reference_frame = self.videoAnalysis.reference_frame
+            self.shape_frame = self.videoAnalysis.all_colour_frames[1]
             return True
         else:
             return False
 
-         
-    
+
+
     def __str__(self) -> str:
-        
         pass
     
     def process_video(self, path: str) -> list:
@@ -81,43 +85,26 @@ class DivingVisualTracker:
         self.currentframe = i
         self.currentPicture = i
         return i
-    
-    def get_previous_frame(self):
-        # Replace this with your actual logic to get the previous frame
-        if self.current_frame_index > 0:
-            self.current_frame_index -= 1
-            return self.frames[self.current_frame_index]
-        else:
-            return None
-
-    def get_next_frame(self):
-        # Replace this with your actual logic to get the next frame
-        if self.current_frame_index < len(self.frames) - 1:
-            self.current_frame_index += 1
-            return self.frames[self.current_frame_index]
-        else:
-            return None
 
     def __del__(self):
-        print("Destoryed visual tracker")
+        print("Destroyed visual tracker")
 
     def select_colour(self, colour):
         if colour == "All Colors":
-            self.videoAnalysis.frames_display.clear()
-            self.videoAnalysis.frames_display.append(self.videoAnalysis.all_colour_frames[0])
-            self.videoAnalysis.frames_display.append(self.videoAnalysis.all_colour_frames[1])
-            self.current_frame_index = 1
-
-
+            self.reference_frame = self.videoAnalysis.reference_frame
+            self.shape_frame = self.videoAnalysis.all_colour_frames[1]
         else:
-            if len(self.frames) > 1:
-                self.current_frame_index -= 1
+            self.reference_frame = self.videoAnalysis.extract_colour_by_pixel(self.videoAnalysis.reference_frame, colour)
+            if len(self.videoAnalysis.shape_dictionary[colour]) != 0:
+                self.shape_frame = self.videoAnalysis.draw_specific_shape(colour, self.current_shape_indexes[colour])
+            else:
+                self.shape_frame = np.ones((len(self.reference_frame), len(self.reference_frame[0]), 3), np.uint8, 'C')
 
-            self.videoAnalysis.frames_display.clear()
-            self.videoAnalysis.frames_display.append(self.videoAnalysis.extract_colour(self.videoAnalysis.all_colour_frames[1], colour))
-            #self.videoAnalysis.frames_display.append(self.videoAnalysis.extract_colour(self.videoAnalysis.all_colour_frames[1], colour))
+
+    def update_shape(self, current_colour):
+        self.shape_frame = self.videoAnalysis.draw_specific_shape(current_colour, self.current_shape_indexes[current_colour])
+
         
-        self.frames = self.videoAnalysis.frames_display
 
 class SportsApp(QWidget):
     selected_color = "All Colors"  # Class variable to store the selected color
@@ -127,7 +114,6 @@ class SportsApp(QWidget):
 
         self.divingBackend = DivingVisualTracker()
         self.tracked_shapes = []  # List to store the shapes to be tracked
-
 
         self.initUI()
 
@@ -141,10 +127,11 @@ class SportsApp(QWidget):
         main_layout = QVBoxLayout(self)
 
         # Create a widget for shape-related buttons and labels
-        
+        shape_widget = self.createShapeWidget()
 
         # Add the tab widget
         main_layout.addWidget(tab_widget)
+        main_layout.addWidget(shape_widget)
         self.setLayout(main_layout)
 
         # Set the background color
@@ -164,77 +151,45 @@ class SportsApp(QWidget):
 
         self.button_open_file = QPushButton('Open File', self)
         self.textbox_file_path = QLineEdit(self)
-        self.label_image = QLabel(self)
+        self.label_image1 = QLabel(self)
+        self.label_image2 = QLabel(self)
         self.button_process_image = QPushButton('Process Image', self)
-        self.button_back = QPushButton('Back', self)
-        self.button_forward = QPushButton('Forward', self)
+
         self.color_selection_combo = QComboBox(self)  # Add a combo box for color selection
+
 
         # Add color names to the combo box
         self.color_selection_combo.addItems(["All Colors"] + list(self.divingBackend.index.keys()))
 
-        # Instantiate the new buttons here
-        self.button_up = QPushButton('Up', self)
-        self.button_down = QPushButton('Down', self)
-        self.label_shape_counter = QLabel('Shape ID: 0', self)
-        self.button_add_shape = QPushButton('Add Shape', self)
-        self.button_remove_shape = QPushButton('Remove Shape', self)
-
-        # Initialize label_shape_counter as a QLabel
-        self.label_shape_counter = QLabel('Shape ID: 0', self)
-
-        shape_widget = QWidget()
-        shape_layout = QVBoxLayout(shape_widget)
-        shape_layout.addWidget(self.label_shape_counter)
-        shape_layout.addWidget(self.button_up)
-        shape_layout.addWidget(self.button_down)
-        shape_layout.addWidget(self.button_add_shape)
-        shape_layout.addWidget(self.button_remove_shape)
-
-        self.button_up.clicked.connect(self.showNextShape)
-        self.button_down.clicked.connect(self.showPreviousShape)
-        self.button_add_shape.clicked.connect(self.addShape)
-        self.button_remove_shape.clicked.connect(self.removeShape)
-
-        # Initially hide the new shape-related buttons and labels
-        self.button_up.hide()
-        self.button_down.hide()
-        self.label_shape_counter.hide()
-        self.button_add_shape.hide()
-        self.button_remove_shape.hide()
+        image_widget = QWidget()
+        layout_images = QHBoxLayout(image_widget)
+        layout_images.addWidget(self.label_image1)  # Placeholder for loaded image
+        layout_images.addWidget(self.label_image2)  # Placeholder for loaded images
+        
+        
 
         # Connect button click events to functions
         self.button_open_file.clicked.connect(self.openFile)
         self.button_process_image.clicked.connect(self.processImage)
-        self.button_back.clicked.connect(self.showPreviousFrame)
-        self.button_forward.clicked.connect(self.showNextFrame)
+
         self.color_selection_combo.currentIndexChanged.connect(self.colorSelected)
 
         # Initially hide the buttons and combo box
         self.button_process_image.hide()
-        self.button_back.hide()
-        self.button_forward.hide()
         self.color_selection_combo.hide()
 
         # Set up the layout for the first tab
         layout_tab1 = QVBoxLayout(widget)
         layout_tab1.addWidget(self.button_open_file)
         layout_tab1.addWidget(self.textbox_file_path)
-        layout_tab1.addWidget(self.label_image)  # Placeholder for loaded image
+        layout_tab1.addWidget(image_widget)
+
         layout_tab1.addWidget(self.button_process_image)
-        layout_tab1.addLayout(self.createNavigationLayout())
-        layout_tab1.addWidget(self.label_shape_counter)
         layout_tab1.addWidget(self.color_selection_combo)  # Add the color selection combo box
 
-        layout_tab1.addWidget(self.button_up)
-        layout_tab1.addWidget(self.button_down)
-        layout_tab1.addWidget(self.button_add_shape)
-        layout_tab1.addWidget(self.button_remove_shape)
-        layout_tab1.addWidget(shape_widget)
         layout_tab1.addStretch(1)
 
         return widget
-
 
     def createTab2(self):
         widget = QWidget()
@@ -245,19 +200,43 @@ class SportsApp(QWidget):
         layout.addStretch(1)
         return widget
 
-    def createNavigationLayout(self):
-        navigation_layout = QHBoxLayout()
-        navigation_layout.addWidget(self.button_back)
-        navigation_layout.addWidget(self.button_forward)
-        return navigation_layout
-    
-    def showNextShape(self):
-        # ... (unchanged)
-        pass
 
-    def showPreviousShape(self):
-        # ... (unchanged)
-        pass
+    def createShapeWidget(self):
+        # Create a widget for shape-related buttons and labels
+        shape_widget = QWidget()
+
+        # Instantiate the new buttons here
+        self.button_up = QPushButton('Up', self)
+        self.button_down = QPushButton('Down', self)
+        self.button_add_shape = QPushButton('Add Shape', self)
+        self.button_remove_shape = QPushButton('Remove Shape', self)
+
+        # Initialize label_shape_counter as a QLabel
+        self.label_shape_counter = QLabel('Shape ID: 0', self)
+
+        shape_layout = QVBoxLayout(shape_widget)
+        shape_layout.addWidget(self.label_shape_counter)
+        shape_layout.addWidget(self.button_up)
+        shape_layout.addWidget(self.button_down)
+        shape_layout.addWidget(self.button_add_shape)
+        shape_layout.addWidget(self.button_remove_shape)
+
+        
+
+        self.button_down.clicked.connect(self.showNextShape)
+        self.button_up.clicked.connect(self.showPreviousShape)
+        self.button_add_shape.clicked.connect(self.addShape)
+        self.button_remove_shape.clicked.connect(self.removeShape)
+
+        # Initially hide the new shape-related buttons and labels
+        self.button_up.hide()
+        self.button_down.hide()
+        self.label_shape_counter.hide()
+        self.button_add_shape.hide()
+        self.button_remove_shape.hide()
+
+        return shape_widget
+
 
     def addShape(self):
         # ... (unchanged)
@@ -268,20 +247,10 @@ class SportsApp(QWidget):
         pass
 
     def updateShapeCounterLabel(self):
-        if len(self.tracked_shapes) > 0:
-            self.label_shape_counter.setText(f'Shape ID: {self.divingBackend.current_shape_index}')
+        if len(self.divingBackend.videoAnalysis.shape_dictionary[self.selected_color]) > 0:
+            self.label_shape_counter.setText(f'Shape ID: {self.divingBackend.current_shape_indexes[self.selected_color]}')
         else:
             self.label_shape_counter.setText('No Shapes')
-
-    def showNextShape(self):
-        if len(self.tracked_shapes) > 0:
-            self.divingBackend.current_shape_index = (self.divingBackend.current_shape_index + 1) % len(self.tracked_shapes)
-            self.updateShapeCounterLabel()
-
-    def showPreviousShape(self):
-        if len(self.tracked_shapes) > 0:
-            self.divingBackend.current_shape_index = (self.divingBackend.current_shape_index - 1) % len(self.tracked_shapes)
-            self.updateShapeCounterLabel()
 
     def openFile(self):
         options = QFileDialog.Options()
@@ -296,20 +265,19 @@ class SportsApp(QWidget):
 
             # Check if the file is an image and display it
             if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
-                self.divingBackend.currentPicture = self.divingBackend.process_picture(file_path)
-                self.showImage(self.divingBackend.currentPicture)
+                
+                self.showImages(self.divingBackend.process_picture(file_path), None)
 
                 # Show the buttons and combo box after an image is loaded
                 self.button_process_image.show()
                 self.button_process_image.setEnabled(True)
 
-                
             else:
-                self.label_image.clear()
+                self.label_image1.clear()
+                self.label_image2.clear()
+
                 # Hide the buttons and combo box if no image is loaded
                 self.button_process_image.hide()
-                self.button_back.hide()
-                self.button_forward.hide()
                 self.color_selection_combo.hide()
 
     def processImage(self):
@@ -319,94 +287,119 @@ class SportsApp(QWidget):
         self.divingBackend.start_shape_detetion(self.divingBackend.currentframe)
 
         # Show the processed image
-        self.showImage(self.divingBackend.frames[0])
+        self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)
 
-        self.button_back.show()
-        self.button_forward.show()
         self.button_process_image.setDisabled(True)
-        self.updateNavigationButtons()
-
-    def colorSelected(self, index):
-        # Handle the color selection change event
-        selected_color = self.color_selection_combo.currentText()
-
-        # Update the selected color as a class variable
-        if selected_color != "All Colors":
-            self.selected_color = self.divingBackend.index.get(selected_color, None)
-        else:
-            
-            self.selected_color = "All Colors"
-        self.selected_color = selected_color
-        self.divingBackend.select_colour(selected_color)
-        self.showImage(self.divingBackend.frames[self.divingBackend.current_frame_index])
-
-        self.updateNavigationButtons()
-
-    def showImage(self, image_data):
-        # Load and display an image in the QLabel
-        height, width, channel = image_data.shape
-        bytes_per_line = 3 * width
-        q_image = QImage(image_data.data, width, height, bytes_per_line, QImage.Format_BGR888)
-
-        # Convert the QImage to a QPixmap and display it in the QLabel
-        pixmap = QPixmap.fromImage(q_image)
-        pixmap = pixmap.scaledToWidth(400)  # Adjust the width as needed
-        self.label_image.setPixmap(pixmap)
-        self.label_image.setAlignment(Qt.AlignCenter)
-
-    def showPreviousFrame(self):
-        previous_frame = self.divingBackend.get_previous_frame()
-        if previous_frame is not None:
-            self.showImage(previous_frame)
-
-        if self.divingBackend.current_frame_index == 0 and self.selected_color == "All Colors":
-            self.color_selection_combo.hide()
-        else:
-            self.color_selection_combo.show()
-
-        self.button_down.hide()
-        self.button_add_shape.hide()
-        self.button_remove_shape.hide()
-        self.button_up.hide()
-
-        # Update the button label and state
-        self.updateNavigationButtons()
-
-    def showNextFrame(self):
-        next_frame = self.divingBackend.get_next_frame()
-        if next_frame is not None:
-            self.showImage(next_frame)
-
         self.color_selection_combo.show()
 
 
-        if self.divingBackend.current_frame_index == 2 and self.selected_color == "All Colors":
-            self.button_down.show()
-            self.button_add_shape.show()
-            self.button_remove_shape.show()
-            self.button_up.show()
+    def colorSelected(self, index):
+        # Handle the color selection change event
+        self.selected_color = self.color_selection_combo.currentText()
+
+        # Update the selected color as a class variable
+        if self.selected_color != "All Colors":
+            self.updateNavigationButtons()
+
         else:
+            self.selected_color = "All Colors"
+
+        self.divingBackend.select_colour(self.selected_color)
+
+
+        # Update the UI based on the selected color
+        self.updateUIForSelectedColor(self.selected_color)
+
+        # Update the navigation buttons
+
+
+    def updateUIForSelectedColor(self, selected_color):
+        # Check if the color is "All Colors"
+        if selected_color == "All Colors":
+            # Show the original image
+            self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)
+            self.color_selection_combo.show()
+            self.button_down.hide()
+            self.button_add_shape.hide()
+            self.button_remove_shape.hide()
+            self.button_up.hide()
+            self.label_shape_counter.hide()
+
+
+        else:
+            self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)
             self.button_down.show()
             self.button_add_shape.show()
             self.button_remove_shape.show()
             self.button_up.show()
+            self.label_shape_counter.show()
 
 
-        # Update the button label and state
+
+    def showPreviousShape(self):
+        self.divingBackend.current_shape_indexes[self.selected_color] -= 1
         self.updateNavigationButtons()
+        self.divingBackend.update_shape(self.selected_color)
+        self.updateShapeCounterLabel()
+        self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)
+
+    def showNextShape(self):
+        self.divingBackend.current_shape_indexes[self.selected_color] += 1
+        self.updateNavigationButtons()
+        self.divingBackend.update_shape(self.selected_color)
+        self.updateShapeCounterLabel()
+        self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)
+
 
     def updateNavigationButtons(self):
-        # Update the button labels with the number of available frames
-        self.button_back.setText(f'Back ({self.divingBackend.current_frame_index} frames)')
-        self.button_forward.setText(f'Forward ({len(self.divingBackend.frames) - 1 - self.divingBackend.current_frame_index} frames)')
+        # Enable or disable the navigation buttons based on the current frame index
+        self.button_up.setEnabled(True)
 
-        # Enable or disable the buttons based on the availability of frames
-        self.button_back.setEnabled(self.divingBackend.current_frame_index > 0)
-        self.button_forward.setEnabled(self.divingBackend.current_frame_index < len(self.divingBackend.frames) - 1)
+        if len(self.divingBackend.videoAnalysis.shape_dictionary[self.selected_color]) == 0:
+            self.button_up.setDisabled(True)
+            self.button_down.setDisabled(True)
+
+            self.button_down.setText("No Shapes")
+            self.button_up.setText("No Shapes")
+            return
+
+        if self.divingBackend.current_shape_indexes[self.selected_color] == 0:
+            self.button_up.setDisabled(True)
+
+        
+        self.button_down.setEnabled(True)
+        self.button_down.setText("Down: " + str(len(self.divingBackend.videoAnalysis.shape_dictionary[self.selected_color]) - 1 - self.divingBackend.current_shape_indexes[self.selected_color]))
+        self.button_up.setText("Up: " + str(self.divingBackend.current_shape_indexes[self.selected_color]))
+
+
+
+        if self.divingBackend.current_shape_indexes[self.selected_color] == len(self.divingBackend.videoAnalysis.shape_dictionary[self.selected_color]) - 1:
+            self.button_down.setDisabled(True)
+        
+        
+
+
+
+    def showImages(self, image1, image2):
+        # Convert the image array to QImage
+        height, width, channel = image1.shape
+        bytes_per_line = 3 * width
+        q_image = QImage(image1.data, width, height, bytes_per_line, QImage.Format_BGR888)
+
+        # Display the QImage in the label
+        self.label_image1.setPixmap(QPixmap.fromImage(q_image))
+        
+        if image2 is None:
+            return
+        # Convert the image array to QImage
+        height, width, channel = image2.shape
+        bytes_per_line = 3 * width
+        q_image = QImage(image2.data, width, height, bytes_per_line, QImage.Format_BGR888)
+
+        # Display the QImage in the label
+        self.label_image2.setPixmap(QPixmap.fromImage(q_image))
 
 if __name__ == '__main__':
-    app = QApplication([])
+    app = QApplication(sys.argv)
     sports_app = SportsApp()
-    sports_app.show()
-    app.exec_()
-
+    sys.exit(app.exec_())

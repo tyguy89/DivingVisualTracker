@@ -505,6 +505,10 @@ class SportsApp(QWidget):
 
     def updateNavigationButtons(self):
         # Enable or disable the navigation buttons based on the current frame index
+        if self.selected_color == "All Colors":
+            print("Tyler Should figure out this thing, shouldnt happen")
+            return
+        
         self.button_up.setEnabled(True)
 
         if len(self.divingBackend.videoAnalysis.shape_dictionary[self.selected_color]) == 0:

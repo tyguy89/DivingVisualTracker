@@ -12,7 +12,7 @@ class RGBShapeDetection:
         "cyan": np.array([255, 255, 0]), "aqua": np.array([190, 255, 0]),
         "pink": np.array([255, 0, 190]), "magenta": np.array([255, 0, 255]),
         "purple": np.array([255, 0, 100]), "light green": np.array([0, 255, 150]),
-        "yellow": np.array([0, 255, 255]), "orange": np.array([0, 165, 255])
+        "yellow": np.array([0, 255, 255]), "orange": np.array([0, 165, 255]), "red_back": np.array([0, 0, 255]), "red_front": np.array([0, 0, 255])
         }
         self.reversed_index_bgr = {}
         for k in self.index_bgr:
@@ -61,7 +61,7 @@ class RGBShapeDetection:
             "green": cv.inRange(hsv_img, np.array([35, 30, 30]), np.array([75, 255, 255])),
             "aqua": cv.inRange(hsv_img, np.array([75, 30, 30]), np.array([85, 255, 255])),
             "cyan": cv.inRange(hsv_img, np.array([85, 30, 30]), np.array([95, 255, 255])),
-            "light_blue": cv.inRange(hsv_img, np.array([95, 30, 30]), np.array([110, 255, 255])),
+            "light blue": cv.inRange(hsv_img, np.array([95, 30, 30]), np.array([110, 255, 255])),
             "blue": cv.inRange(hsv_img, np.array([110, 30, 30]), np.array([130, 255, 255])),
             "purple": cv.inRange(hsv_img, np.array([130, 30, 30]), np.array([140, 255, 255])),
             "magenta": cv.inRange(hsv_img, np.array([140, 30, 30]), np.array([155, 255, 255])),

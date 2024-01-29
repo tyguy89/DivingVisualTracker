@@ -4,6 +4,8 @@ from image_analysis.image_analysis_main import ImageAnalysisMain
 import config
 from PyQt5.QtGui import *
 from PyQt5.QtWidgets import *
+from PyQt5.QtGui import QIntValidator
+
 from PyQt5.QtCore import *
 import cv2, sys
 import numpy as np
@@ -58,17 +60,25 @@ class DivingVisualTracker:
             "orange": np.array([0, 165, 255])
         }
 
-    def start_shape_detetion(self, first_frame: np.array) -> None:
+    def start_RGB_shape_detetion(self, first_frame: np.array, nstart, nend, x, y) -> None:
         self.id = 1
         self.videoAnalysis.read_frame(first_frame)
-        if 0 == self.videoAnalysis.start_RGB_shape_detection(False, [], 5, 5, 3):
+        if 0 == self.videoAnalysis.start_RGB_shape_detection(False, [], x, y, nstart, nend):
             self.reference_frame = self.videoAnalysis.reference_frame
             self.shape_frame = self.videoAnalysis.all_colour_frames[1]
             return True
         else:
             return False
 
-
+    def start_HSV_shape_detetion(self, first_frame: np.array,  nstart, nend, x, y) -> None:
+        self.id = 1
+        self.videoAnalysis.read_frame(first_frame)
+        if 0 == self.videoAnalysis.start_HSV_shape_detection(False, [], x, y, nstart, nend):
+            self.reference_frame = self.videoAnalysis.reference_frame
+            self.shape_frame = self.videoAnalysis.all_colour_frames[1]
+            return True
+        else:
+            return False
 
     def __str__(self) -> str:
         pass
@@ -85,6 +95,7 @@ class DivingVisualTracker:
         self.currentframe = i
         self.currentPicture = i
 
+        
         self.current_shape_indexes = {
             "black": 0,
             "white": 0,
@@ -111,7 +122,7 @@ class DivingVisualTracker:
             self.reference_frame = self.videoAnalysis.reference_frame
             self.shape_frame = self.videoAnalysis.all_colour_frames[1]
         else:
-            self.reference_frame = self.videoAnalysis.extract_colour_by_pixel(self.videoAnalysis.reference_frame, colour)
+            self.reference_frame = self.videoAnalysis.extract_colour_by_dict(self.videoAnalysis.reference_frame, colour)
             if len(self.videoAnalysis.shape_dictionary[colour]) != 0:
                 self.shape_frame = self.videoAnalysis.draw_specific_shape(colour, self.current_shape_indexes[colour])
             else:
@@ -132,12 +143,21 @@ class SportsApp(QWidget):
         self.divingBackend = DivingVisualTracker()
         self.tracked_shapes = []  # List to store the shapes to be tracked
 
+        self.image_processing_mode = "RGB"
+
+        self.pixel_neighbour_min = 3
+        self.pixel_neighbour_max = 5
+
+        self.shape_zoning_x = 5
+        self.shape_zoning_y = 5
+
         self.initUI()
 
     def initUI(self):
         # Create a tab widget
         tab_widget = QTabWidget(self)
         tab_widget.addTab(self.createTab1(), "Image Processing")  # Renamed the tab
+        tab_widget.addTab(self.createImageSettingsTab(), "Image Processing Settings")
         tab_widget.addTab(self.createTab2(), "Graph Tab")
 
         # Set up the main layout
@@ -163,6 +183,104 @@ class SportsApp(QWidget):
         self.setWindowTitle('Sports Visualization App')
         self.show()
 
+    def createImageSettingsTab(self):
+        widget = QWidget()
+
+        layout_tab = QVBoxLayout(widget)
+        self.colour_mode_label = QLabel("Image Processing Method:", self)
+        # button_box = QHBoxLayout(widget)
+
+        # button_box.addSpacing(20)
+
+        self.buttonRGB = QPushButton("RGB", self)
+        self.buttonHSV = QPushButton("HSV", self)
+
+        if self.image_processing_mode == "RGB":
+            self.buttonHSV.setStyleSheet("background-color : lightgrey")
+            self.buttonRGB.setStyleSheet("background-color : lightblue")
+
+        elif self.image_processing_mode == "HSV":
+            self.buttonHSV.setStyleSheet("background-color : lightblue")
+            self.buttonRGB.setStyleSheet("background-color : lightgrey")
+
+        self.buttonRGB.clicked.connect(self.RGB_setting_button)
+        self.buttonHSV.clicked.connect(self.HSV_setting_button)
+
+        # button_box.addWidget(self.buttonRGB)
+        # button_box.addWidget(self.buttonHSV)
+
+        self.shape_bound_label = QLabel("Shape definition boundaries (how many pixels surrounding a main pixel need to be a different colour for it to be considered an edge): \n Min \n Max ", self)
+        self.textbox_min_neighbour_setting = QLineEdit("3", self)
+        self.textbox_max_neighbour_setting = QLineEdit("5", self)
+
+        self.shape_zone_label = QLabel("Shape zone size starting point (pixels) +/- in both directions: \n X Val \n Y Val ", self)
+
+        self.textbox_x_pixel_shape_range = QLineEdit("5", self)
+        self.textbox_y_pixel_shape_range = QLineEdit("5", self)
+
+        onlyInt1, onlyInt2, onlyInt3 = QIntValidator(), QIntValidator(), QIntValidator()
+        onlyInt1.setRange(1, 7)
+        self.textbox_min_neighbour_setting.setValidator(onlyInt1)
+        onlyInt2.setRange(1, 8)
+        self.textbox_max_neighbour_setting.setValidator(onlyInt2)
+        onlyInt3.setRange(1, 500)
+        self.textbox_x_pixel_shape_range.setValidator(onlyInt3)
+        self.textbox_y_pixel_shape_range.setValidator(onlyInt3)
+
+        self.textbox_min_neighbour_setting.editingFinished.connect(self.min_neighbour_setting)
+        self.textbox_min_neighbour_setting.editingFinished.connect(self.max_neighbour_setting)
+
+        self.textbox_x_pixel_shape_range.editingFinished.connect(self.x_setting)
+        self.textbox_y_pixel_shape_range.editingFinished.connect(self.y_setting)
+
+
+        layout_tab.addWidget(self.colour_mode_label)
+        # layout_tab.addWidget(button_box)
+        layout_tab.addWidget(self.buttonRGB)
+        layout_tab.addWidget(self.buttonHSV)
+        layout_tab.addWidget(self.shape_bound_label)
+        layout_tab.addWidget(self.textbox_min_neighbour_setting)
+        layout_tab.addWidget(self.textbox_max_neighbour_setting)
+        layout_tab.addWidget(self.shape_zone_label)
+        layout_tab.addWidget(self.textbox_x_pixel_shape_range)
+        layout_tab.addWidget(self.textbox_y_pixel_shape_range)
+
+        layout_tab.addSpacing(20)
+
+
+        layout_tab.addStretch(1)
+
+        return widget
+    
+    def min_neighbour_setting(self):
+        self.pixel_neighbour_min = int(self.textbox_min_neighbour_setting.text())
+    
+    def max_neighbour_setting(self):
+        self.pixel_neighbour_max = int(self.textbox_max_neighbour_setting.text())
+
+    def x_setting(self):
+        self.shape_zoning_x = int(self.textbox_x_pixel_shape_range.text())
+
+    def y_setting(self):
+        self.shape_zoning_y = int(self.textbox_y_pixel_shape_range.text())
+
+    def RGB_setting_button(self):
+        self.image_processing_mode = "RGB"
+
+
+        self.buttonHSV.setStyleSheet("background-color : lightgrey")
+        self.buttonRGB.setStyleSheet("background-color : lightblue")
+        self.button_process_image.setText('Process Image - ' + str(self.image_processing_mode))
+
+
+
+    def HSV_setting_button(self):
+        self.image_processing_mode = "HSV"
+        
+        self.buttonHSV.setStyleSheet("background-color : lightblue")
+        self.buttonRGB.setStyleSheet("background-color : lightgrey")
+        self.button_process_image.setText('Process Image - ' + str(self.image_processing_mode))
+
     def createTab1(self):
         widget = QWidget()
 
@@ -170,7 +288,7 @@ class SportsApp(QWidget):
         self.textbox_file_path = QLineEdit(self)
         self.label_image1 = QLabel(self)
         self.label_image2 = QLabel(self)
-        self.button_process_image = QPushButton('Process Image', self)
+        self.button_process_image = QPushButton('Process Image - ' + str(self.image_processing_mode), self)
 
         self.color_selection_combo = QComboBox(self)  # Add a combo box for color selection
 
@@ -182,8 +300,6 @@ class SportsApp(QWidget):
         layout_images = QHBoxLayout(image_widget)
         layout_images.addWidget(self.label_image1)  # Placeholder for loaded image
         layout_images.addWidget(self.label_image2)  # Placeholder for loaded images
-        
-        
 
         # Connect button click events to functions
         self.button_open_file.clicked.connect(self.openFile)
@@ -215,7 +331,7 @@ class SportsApp(QWidget):
         # For example, you might use Matplotlib or another plotting library
         layout.addWidget(QLabel("Graph Tab Content"))
         layout.addStretch(1)
-        return widget
+        return widget   
 
 
     def createShapeWidget(self):
@@ -225,8 +341,10 @@ class SportsApp(QWidget):
         # Instantiate the new buttons here
         self.button_up = QPushButton('Up', self)
         self.button_down = QPushButton('Down', self)
-        self.button_add_shape = QPushButton('Add Shape', self)
-        self.button_remove_shape = QPushButton('Remove Shape', self)
+        self.button_add_shape = QPushButton('Add Current Shape', self)
+        self.button_remove_shape = QPushButton('Delete ALL Saved Shapes', self)
+
+        self.button_toggle_show_tracked_shapes = QPushButton("Show Selected Shapes - Amount:" + str(len(self.tracked_shapes)))
 
         # Initialize label_shape_counter as a QLabel
         self.label_shape_counter = QLabel('Shape ID: 0', self)
@@ -235,10 +353,12 @@ class SportsApp(QWidget):
         shape_layout.addWidget(self.label_shape_counter)
         shape_layout.addWidget(self.button_up)
         shape_layout.addWidget(self.button_down)
+        shape_layout.addWidget(self.button_toggle_show_tracked_shapes)
         shape_layout.addWidget(self.button_add_shape)
         shape_layout.addWidget(self.button_remove_shape)
 
-        
+
+        self.button_toggle_show_tracked_shapes.clicked.connect(self.toggle_show_tracked_shapes)
 
         self.button_down.clicked.connect(self.showNextShape)
         self.button_up.clicked.connect(self.showPreviousShape)
@@ -251,16 +371,21 @@ class SportsApp(QWidget):
         self.label_shape_counter.hide()
         self.button_add_shape.hide()
         self.button_remove_shape.hide()
+        self.button_toggle_show_tracked_shapes.hide()
 
         return shape_widget
 
+    def toggle_show_tracked_shapes(self):
+        print("This does nothing, not implemented...")
+
+        pass
 
     def addShape(self):
-        # ... (unchanged)
-        pass
+        self.tracked_shapes.append({self.selected_color: self.divingBackend.current_shape_indexes[self.selected_color]})
 
     def removeShape(self):
         # ... (unchanged)
+        print("This does nothing, not implemented...")
         pass
 
     def updateShapeCounterLabel(self):
@@ -287,7 +412,9 @@ class SportsApp(QWidget):
 
                 # Show the buttons and combo box after an image is loaded
                 self.button_process_image.show()
+                self.label_image2.clear()
                 self.button_process_image.setEnabled(True)
+                self.selected_color = "All Colors"
 
             else:
                 self.label_image1.clear()
@@ -301,7 +428,12 @@ class SportsApp(QWidget):
         # Black box image processing
         # Replace this with your actual logic to process the image
         # Update self.divingBackend.currentPicture with the processed image
-        self.divingBackend.start_shape_detetion(self.divingBackend.currentframe)
+
+        if self.image_processing_mode == "RGB":
+            self.divingBackend.start_RGB_shape_detetion(self.divingBackend.currentframe, self.pixel_neighbour_min, self.pixel_neighbour_max, self.shape_zoning_x, self.shape_zoning_y)
+        elif self.image_processing_mode == "HSV":
+            self.divingBackend.start_HSV_shape_detetion(self.divingBackend.currentframe, self.pixel_neighbour_min, self.pixel_neighbour_max, self.shape_zoning_x, self.shape_zoning_y)
+        
 
         # Show the processed image
         self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)
@@ -313,7 +445,7 @@ class SportsApp(QWidget):
     def colorSelected(self, index):
         # Handle the color selection change event
         self.selected_color = self.color_selection_combo.currentText()
-
+        
         # Update the selected color as a class variable
         if self.selected_color != "All Colors":
             self.updateNavigationButtons()
@@ -331,6 +463,8 @@ class SportsApp(QWidget):
 
 
     def updateUIForSelectedColor(self, selected_color):
+        self.updateShapeCounterLabel()
+
         # Check if the color is "All Colors"
         if selected_color == "All Colors":
             # Show the original image
@@ -350,6 +484,7 @@ class SportsApp(QWidget):
             self.button_remove_shape.show()
             self.button_up.show()
             self.label_shape_counter.show()
+            self.button_toggle_show_tracked_shapes.show()
 
 
 
@@ -389,14 +524,10 @@ class SportsApp(QWidget):
         self.button_up.setText("Up: " + str(self.divingBackend.current_shape_indexes[self.selected_color]))
 
 
-
         if self.divingBackend.current_shape_indexes[self.selected_color] == len(self.divingBackend.videoAnalysis.shape_dictionary[self.selected_color]) - 1:
             self.button_down.setDisabled(True)
         
         
-
-
-
     def showImages(self, image1, image2):
         # Convert the image array to QImage
         height, width, channel = image1.shape

@@ -22,23 +22,32 @@ class ImageAnalysisMain:
         self.blank_sized_canvas = np.zeros((len(frame), len(frame[0]), 3), np.uint8, 'C')
 
 
-    def start_RGB_shape_detection(self, extract_background: bool, extract_colours: list, zoning_threshold_x: int, zoning_threshold_y: int, neighbour_limit: int):
-        assert self.current_frame is not None
+    def start_RGB_shape_detection(self, extract_background: bool, extract_colours: list, zoning_threshold_x: int, zoning_threshold_y: int, neighbour_start: int, neighbour_end: int):
+        assert self.current_frame is not None and neighbour_start <= neighbour_end
         self.current_frame = self.shapeTool.find_RGB_colour_in_image(self.current_frame)
 
         self.all_colour_frames.append(self.current_frame)
 
-        self.current_frame, self.current_colour_dictionary = self.shapeTool.find_all_shape_edges(self.current_frame, 3, 5)
+        self.current_frame, self.current_colour_dictionary = self.shapeTool.find_all_shape_edges(self.current_frame, neighbour_start, neighbour_end)
         self.reference_frame = self.current_frame
         
         self.shape_dictionary = self.shapeTool.extract_shapes_from_np(self.current_colour_dictionary, zoning_threshold_x, zoning_threshold_y)
 
         return 0
     
-    def start_HSV_shape_detection(self, img):
+    def start_HSV_shape_detection(self, extract_background: bool, extract_colours: list, zoning_threshold_x: int, zoning_threshold_y: int, neighbour_start: int, neighbour_end: int):
 
+        assert self.current_frame is not None and neighbour_start <= neighbour_end
+        self.current_frame = self.shapeTool.find_HSV_colour_in_image(self.current_frame)
 
-        pass
+        self.all_colour_frames.append(self.current_frame)
+
+        self.current_frame, self.current_colour_dictionary = self.shapeTool.find_all_shape_edges(self.current_frame, neighbour_start, neighbour_end)
+        self.reference_frame = self.current_frame
+        
+        self.shape_dictionary = self.shapeTool.extract_shapes_from_np(self.current_colour_dictionary, zoning_threshold_x, zoning_threshold_y)
+
+        return 0
 
     def start_combined_shape_detection():
         pass
@@ -62,6 +71,18 @@ class ImageAnalysisMain:
             img[i[0]][i[1]] = np.array([0, 0, 0])
         
         return img
+    
+    
+    def extract_colour_by_dict(self, img, colour_to_extract):
+        if colour_to_extract == "black":
+            colour_edges = np.ones((len(img), len(img[0]), 3), np.uint8, 'C')
+        else:
+            colour_edges = np.zeros((len(img), len(img[0]), 3), np.uint8, 'C')
+
+        for i in self.current_colour_dictionary[colour_to_extract]:
+            colour_edges[i[0]][i[1]] = self.shapeTool.index_bgr[colour_to_extract]
+        
+        return colour_edges
 
 
     def extract_colour_by_pixel(self, img, colour_to_extract):
@@ -100,7 +121,7 @@ class ImageAnalysisMain:
         shape_dict in the form {(id, colour) -> shape}
         """
 
-        blank = np.zeros((len(img), len(img[0]), 3), np.uint8, 'C')
+        blank = np.zeros((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), np.uint8, 'C')
         
         for key in list(shape_dict.keys()):
             if self.shape_dictionary[key[1]][key[0]] is None:

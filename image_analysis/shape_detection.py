@@ -16,6 +16,8 @@ class RGBShapeDetection:
         }
         self.reversed_index_bgr = {}
         for k in self.index_bgr:
+            if k == "red_front" or k == "red_back":
+                continue
             self.reversed_index_bgr[str(self.index_bgr[k])] = k
 
     def find_pixel_neighbours(self, img, x, y):
@@ -52,6 +54,9 @@ class RGBShapeDetection:
 
 
     def find_HSV_colour_in_image(self, img):
+
+        print(len(img), len(img[0]))
+
         
         hsv_img = cv.cvtColor(img, cv.COLOR_BGR2HSV)
 
@@ -204,6 +209,8 @@ class RGBShapeDetection:
         
         edge_colours = {}
         for k in self.index_bgr.keys():
+            if k == "red_back" or k == "red_front":
+                continue
             edge_colours[k] = []
 
         colour_edges = np.zeros((len(filtered_img), len(filtered_img[0]), 3), np.uint8, 'C')

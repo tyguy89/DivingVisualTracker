@@ -109,28 +109,25 @@ class ImageAnalysisMain:
             return None
         
         for pixels in self.shape_dictionary[current_colour][current_shape_id][1]:
-            print(pixels)
             # - Shape is (x1, x2, y1, y2) [pixels]
             blank[pixels[0]][pixels[1]] = self.shapeTool.index_bgr[current_colour]
         
         return blank
 
 
-    def draw_list_of_shapes(self, shape_dict: dict):
+    def draw_list_of_shapes(self, shape_list):
         """
-        shape_dict in the form {(id, colour) -> shape}
+        shape_list elements in the form (id, colour)
         """
-
         blank = np.zeros((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), np.uint8, 'C')
         
-        for key in list(shape_dict.keys()):
-            if self.shape_dictionary[key[1]][key[0]] is None:
+        for shape in shape_list:
+            if self.shape_dictionary[shape[1]][shape[0]] is None:
                 return None
-            
-            for pixels in self.shape_dictionary[key[1]][key[0]]:
-                blank[pixels[0]][pixels[1]] = self.shapeTool.index_bgr[key[1]]
-            
-            return blank
+            for pixels in self.shape_dictionary[shape[1]][shape[0]][1]:
+                blank[pixels[0]][pixels[1]] = self.shapeTool.index_bgr[shape[1]]
+           
+        return blank
 
     def remove_colour(self, img, colour_data: dict, colour_to_delete):
         for i in colour_data[colour_to_delete]:

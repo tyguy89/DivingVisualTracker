@@ -66,9 +66,15 @@ class DivingVisualTracker:
         if 0 == self.videoAnalysis.start_RGB_shape_detection(False, [], x, y, nstart, nend):
             self.reference_frame = self.videoAnalysis.reference_frame
             self.shape_frame = self.videoAnalysis.all_colour_frames[1]
+            
+            for val in self.current_shape_indexes.keys():
+                self.current_shape_indexes[val] = (0, None) [len(self.videoAnalysis.shape_dictionary[val]) == 0]
+
             return True
         else:
             return False
+        
+        
 
     def start_HSV_shape_detetion(self, first_frame: np.array,  nstart, nend, x, y) -> None:
         self.id = 1
@@ -76,6 +82,10 @@ class DivingVisualTracker:
         if 0 == self.videoAnalysis.start_HSV_shape_detection(False, [], x, y, nstart, nend):
             self.reference_frame = self.videoAnalysis.reference_frame
             self.shape_frame = self.videoAnalysis.all_colour_frames[1]
+
+            for val in self.current_shape_indexes.keys():
+                self.current_shape_indexes[val] = (0, None) [len(self.videoAnalysis.shape_dictionary[val]) == 0]
+
             return True
         else:
             return False
@@ -128,11 +138,30 @@ class DivingVisualTracker:
             else:
                 self.shape_frame = np.ones((len(self.reference_frame), len(self.reference_frame[0]), 3), np.uint8, 'C')
 
+    def select_colour_shapes(self, colour, shape_list: list):
+        if colour == "All Colors":
+            self.reference_frame = self.videoAnalysis.reference_frame
+            self.shape_frame = self.videoAnalysis.all_colour_frames[1]
+        else:
+
+            self.reference_frame = self.videoAnalysis.extract_colour_by_dict(self.videoAnalysis.reference_frame, colour)
+            if len(self.videoAnalysis.shape_dictionary[colour]) != 0 or len(shape_list) != 0:
+                self.shape_frame = self.videoAnalysis.draw_list_of_shapes(shape_list)
+            else:
+                self.shape_frame = np.ones((len(self.reference_frame), len(self.reference_frame[0]), 3), np.uint8, 'C')
+
 
     def update_shape(self, current_colour):
+        if self.current_shape_indexes[current_colour] is None:
+            print("Shape null saved error")
+            return
         self.shape_frame = self.videoAnalysis.draw_specific_shape(current_colour, self.current_shape_indexes[current_colour])
 
-        
+    def update_shape_list(self, current_colour, list_of_shapes: list):
+        list_of_shapes = list_of_shapes.copy()
+        if self.current_shape_indexes[current_colour] is not None and (self.current_shape_indexes[current_colour], current_colour) not in list_of_shapes:
+            list_of_shapes.append((self.current_shape_indexes[current_colour], current_colour))
+        self.shape_frame = self.videoAnalysis.draw_list_of_shapes(list_of_shapes)
 
 class SportsApp(QWidget):
     selected_color = "All Colors"  # Class variable to store the selected color
@@ -150,6 +179,9 @@ class SportsApp(QWidget):
 
         self.shape_zoning_x = 5
         self.shape_zoning_y = 5
+        self.show_targeted_shapes = False
+
+        # self.current_shape = None
 
         self.initUI()
 
@@ -164,11 +196,9 @@ class SportsApp(QWidget):
         main_layout = QVBoxLayout(self)
 
         # Create a widget for shape-related buttons and labels
-        shape_widget = self.createShapeWidget()
 
         # Add the tab widget
         main_layout.addWidget(tab_widget)
-        main_layout.addWidget(shape_widget)
         self.setLayout(main_layout)
 
         # Set the background color
@@ -285,7 +315,7 @@ class SportsApp(QWidget):
         widget = QWidget()
 
         self.button_open_file = QPushButton('Open File', self)
-        self.textbox_file_path = QLineEdit(self)
+        # self.textbox_file_path = QLineEdit(self)
         self.label_image1 = QLabel(self)
         self.label_image2 = QLabel(self)
         self.button_process_image = QPushButton('Process Image - ' + str(self.image_processing_mode), self)
@@ -305,6 +335,9 @@ class SportsApp(QWidget):
         self.button_open_file.clicked.connect(self.openFile)
         self.button_process_image.clicked.connect(self.processImage)
 
+        shape_widget = self.createShapeWidget()
+        layout_images.addWidget(shape_widget)
+
         self.color_selection_combo.currentIndexChanged.connect(self.colorSelected)
 
         # Initially hide the buttons and combo box
@@ -314,7 +347,7 @@ class SportsApp(QWidget):
         # Set up the layout for the first tab
         layout_tab1 = QVBoxLayout(widget)
         layout_tab1.addWidget(self.button_open_file)
-        layout_tab1.addWidget(self.textbox_file_path)
+        # layout_tab1.addWidget(self.textbox_file_path)
         layout_tab1.addWidget(image_widget)
 
         layout_tab1.addWidget(self.button_process_image)
@@ -376,20 +409,42 @@ class SportsApp(QWidget):
         return shape_widget
 
     def toggle_show_tracked_shapes(self):
-        print("This does nothing, not implemented...")
+        self.show_targeted_shapes = not self.show_targeted_shapes
 
-        pass
+        if not self.show_targeted_shapes:
+            self.button_toggle_show_tracked_shapes.setStyleSheet("background-color : lightgrey")
+            self.divingBackend.update_shape(self.selected_color)
+        else:
+            self.button_toggle_show_tracked_shapes.setStyleSheet("background-color : lightblue")
+            self.divingBackend.update_shape_list(self.selected_color, self.tracked_shapes)
+
+        self.updateUIForSelectedColor(self.selected_color)
+
 
     def addShape(self):
-        self.tracked_shapes.append({self.selected_color: self.divingBackend.current_shape_indexes[self.selected_color]})
+
+        if self.divingBackend.current_shape_indexes[self.selected_color] is None:
+            print("NOOOOO! u dont")
+            return
+
+        if (self.divingBackend.current_shape_indexes[self.selected_color], self.selected_color) in self.tracked_shapes:
+            print("Shape already tracked")
+            return
+        
+        self.tracked_shapes.append((self.divingBackend.current_shape_indexes[self.selected_color], self.selected_color))
+        self.button_toggle_show_tracked_shapes.setText("Show Selected Shapes - Amount:" + str(len(self.tracked_shapes)))
+
 
     def removeShape(self):
-        # ... (unchanged)
-        print("This does nothing, not implemented...")
-        pass
+        self.tracked_shapes.clear()
+        self.button_toggle_show_tracked_shapes.setText("Show Selected Shapes - Amount:" + str(len(self.tracked_shapes)))
+        
 
     def updateShapeCounterLabel(self):
-        if len(self.divingBackend.videoAnalysis.shape_dictionary[self.selected_color]) > 0:
+        if self.selected_color == "All Colors":
+            print("Tyler needs to fix this, shouldnt happen")
+            return
+        if self.divingBackend.current_shape_indexes[self.selected_color] is not None:
             self.label_shape_counter.setText(f'Shape ID: {self.divingBackend.current_shape_indexes[self.selected_color]}')
         else:
             self.label_shape_counter.setText('No Shapes')
@@ -403,7 +458,7 @@ class SportsApp(QWidget):
 
         if file_path:
             # Display the file path in the text box
-            self.textbox_file_path.setText(file_path)
+            # self.textbox_file_path.setText(file_path)
 
             # Check if the file is an image and display it
             if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
@@ -415,6 +470,8 @@ class SportsApp(QWidget):
                 self.label_image2.clear()
                 self.button_process_image.setEnabled(True)
                 self.selected_color = "All Colors"
+                self.color_selection_combo.hide()
+
 
             else:
                 self.label_image1.clear()
@@ -423,6 +480,7 @@ class SportsApp(QWidget):
                 # Hide the buttons and combo box if no image is loaded
                 self.button_process_image.hide()
                 self.color_selection_combo.hide()
+                
 
     def processImage(self):
         # Black box image processing
@@ -440,6 +498,7 @@ class SportsApp(QWidget):
 
         self.button_process_image.setDisabled(True)
         self.color_selection_combo.show()
+        self.show_targeted_shapes = False
 
 
     def colorSelected(self, index):
@@ -453,6 +512,11 @@ class SportsApp(QWidget):
         else:
             self.selected_color = "All Colors"
 
+        if self.show_targeted_shapes:
+            self.divingBackend.select_colour_shapes(self.selected_color, self.tracked_shapes)
+            self.divingBackend.update_shape_list(self.selected_color, self.tracked_shapes)
+
+        # else:
         self.divingBackend.select_colour(self.selected_color)
 
 
@@ -491,14 +555,29 @@ class SportsApp(QWidget):
     def showPreviousShape(self):
         self.divingBackend.current_shape_indexes[self.selected_color] -= 1
         self.updateNavigationButtons()
-        self.divingBackend.update_shape(self.selected_color)
+
+        if self.show_targeted_shapes:
+            self.divingBackend.update_shape_list(self.selected_color, self.tracked_shapes)
+            # self.tracked_shapes.remove((self.divingBackend.current_shape_indexes[self.selected_color] + 1, self.selected_color))
+
+        else:
+            self.divingBackend.update_shape(self.selected_color)
+
         self.updateShapeCounterLabel()
         self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)
 
     def showNextShape(self):
         self.divingBackend.current_shape_indexes[self.selected_color] += 1
         self.updateNavigationButtons()
-        self.divingBackend.update_shape(self.selected_color)
+
+        if self.show_targeted_shapes:
+            self.divingBackend.update_shape_list(self.selected_color, self.tracked_shapes)
+            # self.tracked_shapes.remove((self.divingBackend.current_shape_indexes[self.selected_color] - 1, self.selected_color))
+
+
+        else:
+            self.divingBackend.update_shape(self.selected_color)
+
         self.updateShapeCounterLabel()
         self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)
 
@@ -537,9 +616,22 @@ class SportsApp(QWidget):
         height, width, channel = image1.shape
         bytes_per_line = 3 * width
         q_image = QImage(image1.data, width, height, bytes_per_line, QImage.Format_BGR888)
-
+        scaled_pixmap = None
         # Display the QImage in the label
-        self.label_image1.setPixmap(QPixmap.fromImage(q_image))
+        pixmap = QPixmap.fromImage(q_image)
+        if height > 900 and width > 1000:
+            scaled_pixmap = pixmap.scaled(1000, 850, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        elif height > 900:
+            scaled_pixmap = pixmap.scaled(width, 850, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        elif width > 1000:
+            scaled_pixmap = pixmap.scaled(1000, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        else:
+            scaled_pixmap  = pixmap
+
+        self.label_image1.setPixmap(scaled_pixmap)
+        
         
         if image2 is None:
             return
@@ -549,7 +641,20 @@ class SportsApp(QWidget):
         q_image = QImage(image2.data, width, height, bytes_per_line, QImage.Format_BGR888)
 
         # Display the QImage in the label
-        self.label_image2.setPixmap(QPixmap.fromImage(q_image))
+        pixmap = QPixmap.fromImage(q_image)
+        if height > 900 and width > 1000:
+            scaled_pixmap = pixmap.scaled(1000, 900, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        elif height > 900:
+            scaled_pixmap = pixmap.scaled(width, 900, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        elif width > 1000:
+            scaled_pixmap = pixmap.scaled(1000, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        else:
+            scaled_pixmap  = pixmap
+
+            
+        self.label_image2.setPixmap(scaled_pixmap)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

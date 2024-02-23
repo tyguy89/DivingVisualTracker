@@ -219,7 +219,7 @@ class RGBShapeDetection:
                 ninebynine = self.find_pixel_neighbours(filtered_img, i, j)
                 if self.is_edge_of_shape(ninebynine, threshold_start, threshold_end):
                     colour_edges[i][j] = filtered_img[i][j]
-                    edge_colours[self.reversed_index_bgr[str(filtered_img[i][j])]].append((i, j))
+                    edge_colours[self.reversed_index_bgr[str(filtered_img[i][j])]].append([i, j])
 
         return colour_edges, edge_colours
 
@@ -245,7 +245,7 @@ class RGBShapeDetection:
                     else:
                         return value, zones[value][0]
                     
-            print("ADDING NEW SHAPE", v_count)        
+            # print("ADDING NEW SHAPE", v_count)        
             return (v_count, (vertex[0]-zoning_threshold_x, vertex[0]+zoning_threshold_x, vertex[1]-zoning_threshold_y, vertex[1]+zoning_threshold_y))      
 
         zones = dict()

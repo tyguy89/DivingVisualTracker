@@ -25,6 +25,9 @@ class DivingVisualTracker:
         self.reference_frame = None
         self.shape_frame = None
 
+        self.tracked_shapes = []  # List to store the shapes to be tracked
+
+
         #Keep track of position in space
         self.current_shape_indexes = {
             "black": 0,
@@ -101,6 +104,7 @@ class DivingVisualTracker:
         return self.frames
     
     def process_picture(self, path: str):
+        print(path)
         i = self.videoReading.get_picture__feed_source(path)
         self.currentframe = i
         self.currentPicture = i
@@ -164,24 +168,14 @@ class DivingVisualTracker:
         self.shape_frame = self.videoAnalysis.draw_list_of_shapes(list_of_shapes)
 
 class SportsApp(QWidget):
-    selected_color = "All Colors"  # Class variable to store the selected color
 
     def __init__(self):
         super().__init__()
 
         self.divingBackend = DivingVisualTracker()
-        self.tracked_shapes = []  # List to store the shapes to be tracked
-
-        self.image_processing_mode = "RGB"
-
-        self.pixel_neighbour_min = 3
-        self.pixel_neighbour_max = 5
-
-        self.shape_zoning_x = 5
-        self.shape_zoning_y = 5
-        self.show_targeted_shapes = False
-
-        # self.current_shape = None
+        self.frame_id = 0
+        self.video_frame_length = None
+        self.current_path = None
 
         self.initUI()
 
@@ -189,7 +183,6 @@ class SportsApp(QWidget):
         # Create a tab widget
         tab_widget = QTabWidget(self)
         tab_widget.addTab(self.createTab1(), "Image Processing")  # Renamed the tab
-        tab_widget.addTab(self.createImageSettingsTab(), "Image Processing Settings")
         tab_widget.addTab(self.createTab2(), "Graph Tab")
 
         # Set up the main layout
@@ -211,6 +204,211 @@ class SportsApp(QWidget):
         # Set up the main window
         self.setGeometry(100, 100, 800, 600)
         self.setWindowTitle('Sports Visualization App')
+        self.show()
+
+    def createTab1(self):
+        widget = QWidget()
+
+        self.button_open_file = QPushButton('Open File', self)
+        self.button_next_frame = QPushButton("Next Frame", self)
+        self.button_back_frame = QPushButton("Back Frame", self)
+        self.button_start_shape_detection = QPushButton("Start Shape Detection w this frame", self)
+        self.frame_id_label = QLabel("Current Frame ID: " + str(self.frame_id), self)
+        self.label_image1 = QLabel(self)
+
+        # Connect button click events to functions
+        self.button_open_file.clicked.connect(self.openFile)
+        self.button_back_frame.clicked.connect(self.getBackFrame)
+        self.button_next_frame.clicked.connect(self.getNextFrame)
+        self.button_start_shape_detection.clicked.connect(self.startShapeDetection)
+
+        self.button_start_shape_detection.setStyleSheet('background-color: #00FF00')  # Example color: green
+
+
+        self.frame_id_label.hide()
+        self.button_back_frame.hide()
+        self.button_next_frame.hide()
+        self.button_start_shape_detection.hide()
+
+        # Create layout for buttons
+        layout_buttons = QVBoxLayout()
+        layout_buttons.addWidget(self.frame_id_label)
+        layout_buttons.addWidget(self.button_back_frame)
+        layout_buttons.addWidget(self.button_next_frame)
+        layout_buttons.setSpacing(20)
+        layout_buttons.addStretch(1)  # Stretch to push buttons to right side
+
+        # Create layout for image
+        layout_images = QHBoxLayout()
+        layout_images.addWidget(self.label_image1)
+        layout_images.addLayout(layout_buttons)  # Add button layout
+
+        # Create main layout for widget
+        layout_tab1 = QVBoxLayout(widget)
+        layout_tab1.addWidget(self.button_open_file)
+        layout_tab1.addWidget(self.button_start_shape_detection)
+        layout_tab1.addLayout(layout_images)   # Add image layout
+        layout_tab1.setSpacing(10)
+
+        layout_tab1.addStretch(1)
+
+        return widget
+
+    def createTab2(self):
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        # Add your graph-related widgets or components here
+        # For example, you might use Matplotlib or another plotting library
+        layout.addWidget(QLabel("Graph Tab Content"))
+        layout.addStretch(1)
+        return widget   
+
+    def getBackFrame(self):
+        self.frame_id -= 1
+        self.divingBackend.currentframe = self.divingBackend.videoReading.read_n_frames(self.frame_id)[self.frame_id - 1]
+        self.updateFrameButtons()
+        self.showImages(self.divingBackend.currentframe)
+
+
+    def getNextFrame(self):
+        self.frame_id += 1
+
+        self.divingBackend.currentframe = self.divingBackend.videoReading.read_n_frames(self.frame_id)[self.frame_id - 1]
+        self.updateFrameButtons()
+        self.showImages(self.divingBackend.currentframe)
+
+
+    def updateFrameButtons(self):
+        self.button_next_frame.setText("Next Frame - " + str(self.video_frame_length - self.frame_id))
+        self.button_back_frame.setText("Back Frame - " + str(self.frame_id - 1))
+        self.frame_id_label.setText("Current Frame ID: " + str(self.frame_id))
+
+        if self.frame_id < 2:
+            self.button_back_frame.setDisabled(True)
+        else:
+            self.button_back_frame.setEnabled(True)
+
+        if self.frame_id == self.video_frame_length:
+            self.button_next_frame.setDisabled(True)
+        else:
+            self.button_next_frame.setEnabled(True)
+
+    def openFile(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.ReadOnly
+
+        # Open a file dialog and get the selected file path
+        file_path, _ = QFileDialog.getOpenFileName(self, "Open Video or Image File", "", "All Files (*)", options=options)
+
+        if file_path:
+            # Display the file path in the text box
+            # self.textbox_file_path.setText(file_path)
+
+            # Check if the file is an image and display it
+            if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', 'mp4')):
+                # new_path = ""
+                # for ch in file_path:
+                #     if ch == '/':
+                #         new_path += "//"
+                #     else:
+                #         new_path += ch
+                print(file_path)
+                self.current_path = file_path
+                self.divingBackend.videoReading.set_source(file_path)
+
+                self.divingBackend.currentframe = self.divingBackend.videoReading.read_n_frames(1)[0]
+                self.video_frame_length = self.divingBackend.videoReading.get_video_length_source(False)
+                self.frame_id = 1
+
+                
+
+                self.button_back_frame.show()
+                self.button_next_frame.show()
+                self.frame_id_label.show()
+                self.button_start_shape_detection.show()
+
+                self.updateFrameButtons()
+                self.showImages(self.divingBackend.currentframe)
+                
+
+            else:
+                self.label_image1.clear()        
+    
+    def startShapeDetection(self):
+        # app = QApplication(sys.argv)
+        self.sports_app = SportsAppShapeDetection(self.divingBackend, self.divingBackend.currentframe)
+        self.sports_app.show()
+        # sys.exit(app.exec_())
+        
+
+    def showImages(self, image1):
+        # Convert the image array to QImage
+        height, width, channel = image1.shape
+        bytes_per_line = 3 * width
+        q_image = QImage(image1.data, width, height, bytes_per_line, QImage.Format_BGR888)
+        scaled_pixmap = None
+        # Display the QImage in the label
+        pixmap = QPixmap.fromImage(q_image)
+        if height > 900 and width > 1000:
+            scaled_pixmap = pixmap.scaled(1000, 850, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        elif height > 900:
+            scaled_pixmap = pixmap.scaled(width, 850, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+
+        elif width > 1000:
+            scaled_pixmap = pixmap.scaled(1000, height, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        else:
+            scaled_pixmap  = pixmap
+
+        self.label_image1.setPixmap(scaled_pixmap)
+        
+
+
+
+class SportsAppShapeDetection(QWidget):
+    selected_color = "All Colors"  # Class variable to store the selected color
+
+    def __init__(self, backend, frame):
+        super().__init__()
+        self.tracked_shapes = []  # List to store the shapes to be tracked
+        self.divingBackend = backend
+        self.image_processing_mode = "RGB"
+
+        self.pixel_neighbour_min = 3
+        self.pixel_neighbour_max = 5
+
+        self.shape_zoning_x = 5
+        self.shape_zoning_y = 5
+        self.show_targeted_shapes = False
+        self.initUI(frame)
+
+
+    def initUI(self, frame):
+        # Create a tab widget
+        tab_widget = QTabWidget(self)
+        tab_widget.addTab(self.createTab1(), "Shape Detection")  # Renamed the tab
+        tab_widget.addTab(self.createImageSettingsTab(), "Image Processing Settings")
+        tab_widget.addTab(self.createTab2(), "Selected Shapes")
+        self.showImages(frame)
+        # Set up the main layout
+        main_layout = QVBoxLayout(self)
+
+        # Create a widget for shape-related buttons and labels
+
+        # Add the tab widget
+        main_layout.addWidget(tab_widget)
+        self.setLayout(main_layout)
+
+        # Set the background color
+        self.setAutoFillBackground(True)
+        palette = self.palette()
+        background_color = QColor(Qt.cyan).lighter(150)  # Mild opaque industrial cyan blue
+        palette.setColor(self.backgroundRole(), background_color)
+        self.setPalette(palette)
+
+        # Set up the main window
+        self.setGeometry(100, 100, 800, 600)
+        self.setWindowTitle('Shape Selection Window')
         self.show()
 
     def createImageSettingsTab(self):
@@ -303,7 +501,6 @@ class SportsApp(QWidget):
         self.button_process_image.setText('Process Image - ' + str(self.image_processing_mode))
 
 
-
     def HSV_setting_button(self):
         self.image_processing_mode = "HSV"
         
@@ -314,7 +511,6 @@ class SportsApp(QWidget):
     def createTab1(self):
         widget = QWidget()
 
-        self.button_open_file = QPushButton('Open File', self)
         # self.textbox_file_path = QLineEdit(self)
         self.label_image1 = QLabel(self)
         self.label_image2 = QLabel(self)
@@ -332,7 +528,6 @@ class SportsApp(QWidget):
         layout_images.addWidget(self.label_image2)  # Placeholder for loaded images
 
         # Connect button click events to functions
-        self.button_open_file.clicked.connect(self.openFile)
         self.button_process_image.clicked.connect(self.processImage)
 
         shape_widget = self.createShapeWidget()
@@ -341,12 +536,10 @@ class SportsApp(QWidget):
         self.color_selection_combo.currentIndexChanged.connect(self.colorSelected)
 
         # Initially hide the buttons and combo box
-        self.button_process_image.hide()
         self.color_selection_combo.hide()
 
         # Set up the layout for the first tab
         layout_tab1 = QVBoxLayout(widget)
-        layout_tab1.addWidget(self.button_open_file)
         # layout_tab1.addWidget(self.textbox_file_path)
         layout_tab1.addWidget(image_widget)
 
@@ -359,12 +552,30 @@ class SportsApp(QWidget):
 
     def createTab2(self):
         widget = QWidget()
-        layout = QVBoxLayout(widget)
-        # Add your graph-related widgets or components here
-        # For example, you might use Matplotlib or another plotting library
-        layout.addWidget(QLabel("Graph Tab Content"))
-        layout.addStretch(1)
-        return widget   
+        layout = QVBoxLayout()
+
+        # Create a widget to hold the layout content
+        content_widget = QWidget()
+
+        # Create your content layout (e.g., QVBoxLayout) within the content widget
+        content_layout = QVBoxLayout(content_widget)
+        content_layout.addWidget(QLabel("Selected Shapes Tab Content"))
+        
+
+        content_layout.addStretch(1)
+
+        # Create a scroll area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(content_widget)
+
+        # Add the scroll area to the main layout
+        layout.addWidget(scroll_area)
+
+        # Set the layout for the widget
+        widget.setLayout(layout)
+
+        return widget
 
 
     def createShapeWidget(self):
@@ -375,6 +586,8 @@ class SportsApp(QWidget):
         self.button_up = QPushButton('Up', self)
         self.button_down = QPushButton('Down', self)
         self.button_add_shape = QPushButton('Add Current Shape', self)
+        self.shape_name_text = QLineEdit("Shape name", self)
+
         self.button_remove_shape = QPushButton('Delete ALL Saved Shapes', self)
 
         self.button_toggle_show_tracked_shapes = QPushButton("Show Selected Shapes - Amount:" + str(len(self.tracked_shapes)))
@@ -388,6 +601,7 @@ class SportsApp(QWidget):
         shape_layout.addWidget(self.button_down)
         shape_layout.addWidget(self.button_toggle_show_tracked_shapes)
         shape_layout.addWidget(self.button_add_shape)
+        shape_layout.addWidget(self.shape_name_text)
         shape_layout.addWidget(self.button_remove_shape)
 
 
@@ -403,6 +617,7 @@ class SportsApp(QWidget):
         self.button_down.hide()
         self.label_shape_counter.hide()
         self.button_add_shape.hide()
+        self.shape_name_text.hide()
         self.button_remove_shape.hide()
         self.button_toggle_show_tracked_shapes.hide()
 
@@ -431,7 +646,7 @@ class SportsApp(QWidget):
             print("Shape already tracked")
             return
         
-        self.tracked_shapes.append((self.divingBackend.current_shape_indexes[self.selected_color], self.selected_color))
+        self.tracked_shapes.append((self.divingBackend.current_shape_indexes[self.selected_color], self.selected_color, self.shape_name_text.text))
         self.button_toggle_show_tracked_shapes.setText("Show Selected Shapes - Amount:" + str(len(self.tracked_shapes)))
 
 
@@ -448,39 +663,6 @@ class SportsApp(QWidget):
             self.label_shape_counter.setText(f'Shape ID: {self.divingBackend.current_shape_indexes[self.selected_color]}')
         else:
             self.label_shape_counter.setText('No Shapes')
-
-    def openFile(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.ReadOnly
-
-        # Open a file dialog and get the selected file path
-        file_path, _ = QFileDialog.getOpenFileName(self, "Open Video or Image File", "", "All Files (*)", options=options)
-
-        if file_path:
-            # Display the file path in the text box
-            # self.textbox_file_path.setText(file_path)
-
-            # Check if the file is an image and display it
-            if file_path.lower().endswith(('.png', '.jpg', '.jpeg', '.gif')):
-                
-                self.showImages(self.divingBackend.process_picture(file_path), None)
-
-                # Show the buttons and combo box after an image is loaded
-                self.button_process_image.show()
-                self.label_image2.clear()
-                self.button_process_image.setEnabled(True)
-                self.selected_color = "All Colors"
-                self.color_selection_combo.hide()
-
-
-            else:
-                self.label_image1.clear()
-                self.label_image2.clear()
-
-                # Hide the buttons and combo box if no image is loaded
-                self.button_process_image.hide()
-                self.color_selection_combo.hide()
-                
 
     def processImage(self):
         # Black box image processing
@@ -546,6 +728,7 @@ class SportsApp(QWidget):
             self.button_down.show()
             self.button_add_shape.show()
             self.button_remove_shape.show()
+            self.shape_name_text.show()
             self.button_up.show()
             self.label_shape_counter.show()
             self.button_toggle_show_tracked_shapes.show()
@@ -611,7 +794,7 @@ class SportsApp(QWidget):
             self.button_down.setDisabled(True)
         
         
-    def showImages(self, image1, image2):
+    def showImages(self, image1, image2=None):
         # Convert the image array to QImage
         height, width, channel = image1.shape
         bytes_per_line = 3 * width
@@ -619,10 +802,10 @@ class SportsApp(QWidget):
         scaled_pixmap = None
         # Display the QImage in the label
         pixmap = QPixmap.fromImage(q_image)
-        if height > 900 and width > 1000:
+        if height > 800 and width > 1000:
             scaled_pixmap = pixmap.scaled(1000, 850, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-        elif height > 900:
+        elif height > 800:
             scaled_pixmap = pixmap.scaled(width, 850, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         elif width > 1000:
@@ -642,10 +825,10 @@ class SportsApp(QWidget):
 
         # Display the QImage in the label
         pixmap = QPixmap.fromImage(q_image)
-        if height > 900 and width > 1000:
+        if height > 800 and width > 1000:
             scaled_pixmap = pixmap.scaled(1000, 900, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
-        elif height > 900:
+        elif height > 800:
             scaled_pixmap = pixmap.scaled(width, 900, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         elif width > 1000:
@@ -654,7 +837,7 @@ class SportsApp(QWidget):
             scaled_pixmap  = pixmap
 
             
-        self.label_image2.setPixmap(scaled_pixmap)
+        self.label_image2.setPixmap(scaled_pixmap) 
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

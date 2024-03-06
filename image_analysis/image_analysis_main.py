@@ -28,7 +28,7 @@ class ImageAnalysisMain:
     def start_RGB_shape_detection(self, extract_background: bool, extract_colours: list, zoning_threshold_x: int, zoning_threshold_y: int, neighbour_start: int, neighbour_end: int):
         self.time = time.time()
         assert self.current_frame is not None and neighbour_start <= neighbour_end
-        self.current_frame = self.shapeTool.find_RGB_colour_in_image(self.current_frame)
+        self.current_frame = self.shapeTool.find_BGR_colour_in_image(self.current_frame)
         temp = time.time()
         print("Completed RGB colour filtering in: " + str(time.time() - self.time) + " seconds")
         print("Total Elapsed Time: " + str(time.time() - self.time) + " seconds")
@@ -97,7 +97,7 @@ class ImageAnalysisMain:
     
     def extract_colour_by_dict(self, img, colour_to_extract):
         if colour_to_extract == "black":
-            colour_edges = self.fill_white(len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]))
+            colour_edges = np.ones((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), dtype=np.uint8) * 255
         else:
             colour_edges = np.zeros((len(img), len(img[0]), 3), np.uint8, 'C')
 
@@ -109,7 +109,7 @@ class ImageAnalysisMain:
 
     def extract_colour_by_pixel(self, img, colour_to_extract):
         if colour_to_extract == "black":
-            colour_edges = self.fill_white(len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]))
+            colour_edges = np.ones((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), dtype=np.uint8) * 255
         else:
             colour_edges = np.zeros((len(img), len(img[0]), 3), np.uint8, 'C')
 
@@ -123,7 +123,7 @@ class ImageAnalysisMain:
     def draw_specific_shape(self, current_colour, current_shape_id):
         if current_colour == "black":
 
-            blank = self.fill_white(len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]))
+            blank = np.ones((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), dtype=np.uint8) * 255
             
         
         else:
@@ -154,6 +154,19 @@ class ImageAnalysisMain:
                 blank[pixels[0]][pixels[1]] = self.shapeTool.index_bgr[shape[1]]
            
         return blank
+    
+    def draw_list_of_shapes_on_picture(self, pic, shape_list):
+        """
+        shape_list elements in the form (id, colour)
+        """
+        
+        for shape in shape_list:
+            if self.shape_dictionary[shape[1]][shape[0]] is None:
+                return None
+            for pixels in self.shape_dictionary[shape[1]][shape[0]][1]:
+                pic[pixels[0]][pixels[1]] = self.shapeTool.index_bgr[shape[1]]
+           
+        return pic
 
     def remove_colour(self, img, colour_data: dict, colour_to_delete):
         for i in colour_data[colour_to_delete]:

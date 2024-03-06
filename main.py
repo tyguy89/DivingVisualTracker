@@ -175,11 +175,7 @@ class SportsApp(QWidget):
         self.frame_id = 0
         self.video_frame_length = None
         self.current_path = None
-        self.edit_shape_button_list = list()
-        self.edit_shape_colour_button_list = list()
-        self.delete_indiv_shape_button_list = list()
-        self.shape_name_line_list = list()
-        self.reference_shape_button_list = list()
+
 
         self.initUI()
 
@@ -342,8 +338,11 @@ class SportsApp(QWidget):
         # app = QApplication(sys.argv)
         self.sports_app = SportsAppShapeDetection(self.divingBackend, self.divingBackend.currentframe)
         self.sports_app.show()
+        self.sports_app.closed_signal.connect(self.handle_shape_detection_completed)
         # sys.exit(app.exec_())
-        
+    
+    def handle_shape_detection_completed(self):
+        pass
 
     def showImage(self, image1):
         # Convert the image array to QImage
@@ -371,16 +370,23 @@ class SportsApp(QWidget):
 
 class SportsAppShapeDetection(QWidget):
     selected_color = "All Colors"  # Class variable to store the selected color
+    closed_signal = pyqtSignal()
 
     def __init__(self, backend, frame):
         super().__init__()
         self.tracked_shapes = []  # List to store the shapes to be tracked
         self.divingBackend = backend
-        self.image_processing_mode = "RGB"
+        self.image_processing_mode = "HSV"
 
         self.pixel_neighbour_min = 3
         self.pixel_neighbour_max = 5
         self.current_colour_for_shape = None
+
+        self.edit_shape_button_list = list()
+        self.edit_shape_colour_button_list = list()
+        self.delete_indiv_shape_button_list = list()
+        self.shape_name_line_list = list()
+        self.reference_shape_button_list = list()
 
         self.shape_zoning_x = 5
         self.shape_zoning_y = 5
@@ -389,7 +395,12 @@ class SportsAppShapeDetection(QWidget):
         self.initUI(frame)
 
 
+
     def initUI(self, frame):
+
+        self.confirm_shapes_button = QPushButton("Done Shape Selction", self)
+        self.confirm_shapes_button.clicked.connect(self.close_shape_screen)
+        
         # Create a tab widget
         self.tabWidget = QTabWidget(self)
         self.tabWidget.addTab(self.createTab1(), "Shape Detection")  # Renamed the tab
@@ -402,6 +413,7 @@ class SportsAppShapeDetection(QWidget):
         # Create a widget for shape-related buttons and labels
 
         # Add the tab widget
+        main_layout.addWidget(self.confirm_shapes_button)
         main_layout.addWidget(self.tabWidget)
         self.setLayout(main_layout)
 
@@ -485,6 +497,21 @@ class SportsAppShapeDetection(QWidget):
         layout_tab.addStretch(1)
 
         return widget
+    
+    def close_shape_screen(self):
+        if len(self.tracked_shapes) < 2:
+            print("Atleast two shapes must be selcted (1 reference, 1 for movement)")
+            return
+        
+        any_ref = [x for x in self.tracked_shapes if x[-1]]
+
+        if len(any_ref) >= 1:
+            self.divingBackend.tracked_shapes = self.tracked_shapes
+            self.closed_signal.emit()
+            self.close()
+        else:
+            print("Atleast 1 reference shape must be selcted")
+            return
     
     def regenerate_shape_tab(self):
         id = self.tabWidget.currentIndex()

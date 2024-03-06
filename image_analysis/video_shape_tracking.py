@@ -125,42 +125,37 @@ class VideoShapeTracking:
         self.number_of_points = 0
 
     def video_tracking_initialize_first_frame(self, original_frame: np.array, shape) -> bool:
-        
-        #Convert to gray 
-        maxCorners = 50
-        qualityLevel = 0.01
-        minDistance = 7
-        blockSize = 5
+        try:
+            #Convert to gray 
+            maxCorners = 50
+            qualityLevel = 0.03
+            minDistance = 7
+            blockSize = 5
 
-        self.old_frame = original_frame
+            self.old_frame = original_frame
 
-        original_frame_gray = cv.cvtColor(original_frame, cv.COLOR_BGR2GRAY)
-        
+            original_frame_gray = cv.cvtColor(original_frame, cv.COLOR_BGR2GRAY)
+            
 
-        main_mask = np.zeros_like(original_frame_gray, dtype=np.uint8)
+            main_mask = np.zeros_like(original_frame_gray, dtype=np.uint8)
 
-        roi = np.array(shape, np.int32) #MAKE ROI MY SHAPE AND REPEAT FOR ALL OF MY SHAPES, or make sectioned shapes
-        
+            roi = np.array(shape, np.int32) #MAKE ROI MY SHAPE AND REPEAT FOR ALL OF MY SHAPES, or make sectioned shapes
+            
 
-        cv.fillPoly(main_mask, [roi], 255)
-        cv.imshow("f", main_mask)
-        cv.waitKey(0)
-
-        print(original_frame_gray.shape)
-        print(main_mask.shape)
-        # self.featuresGOOD = cv.goodFeaturesToTrackWithQuality(original_frame_gray, maxCorners, qualityLevel, minDistance, mask=main_mask, blockSize=blockSize)
-        self.features0 = cv.goodFeaturesToTrack(original_frame_gray, maxCorners, qualityLevel, minDistance, mask=main_mask, blockSize=blockSize)
-        self.number_of_points = len(self.features0)
-        self.counter = 1
-        print(len(self.features0))
-        for features in self.features0:
-            x, y = features.ravel().astype(int)  # Convert the coordinates to integers
-            cv.circle(original_frame, (x, y), 5, (255, 0, 255), -1)  # Draw circles on the original frame
+            cv.fillPoly(main_mask, [roi], 255)
 
 
-        cv.imshow("Features", original_frame)
-        cv.waitKey(0)
-
+            # self.featuresGOOD = cv.goodFeaturesToTrackWithQuality(original_frame_gray, maxCorners, qualityLevel, minDistance, mask=main_mask, blockSize=blockSize)
+            self.features0 = cv.goodFeaturesToTrack(original_frame_gray, maxCorners, qualityLevel, minDistance, mask=main_mask, blockSize=blockSize)
+            self.number_of_points = len(self.features0)
+            self.counter = 1
+            # print(len(self.features0))
+            # for features in self.features0:
+            #     x, y = features.ravel().astype(int)  # Convert the coordinates to integers
+            #     cv.circle(original_frame, (x, y), 5, (255, 0, 255), -1)  # Draw circles on the original frame
+        except Exception as e:
+            print("Issue detecting features - " + str(e))
+            return False
 
     def feed_frame(self, frame: np.array, tracked_shapes):
         xmov = []

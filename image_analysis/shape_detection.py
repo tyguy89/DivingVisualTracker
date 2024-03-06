@@ -12,7 +12,7 @@ class RGBShapeDetection:
         "cyan": np.array([255, 255, 0]), "aqua": np.array([190, 255, 0]),
         "pink": np.array([255, 0, 190]), "magenta": np.array([255, 0, 255]),
         "purple": np.array([255, 0, 100]), "light green": np.array([0, 255, 150]),
-        "yellow": np.array([0, 255, 255]), "orange": np.array([0, 165, 255]), "red_back": np.array([0, 0, 255]), "red_front": np.array([0, 0, 255])
+        "yellow": np.array([0, 255, 255]), "orange": np.array([0, 165, 255]), "red_back": np.array([0, 0, 255]), "red_front": np.array([0, 0, 255]), "grey": np.array([140, 140, 140])
         }
         self.reversed_index_bgr = {}
         for k in self.index_bgr:
@@ -20,46 +20,13 @@ class RGBShapeDetection:
                 continue
             self.reversed_index_bgr[str(self.index_bgr[k])] = k
 
-    def find_pixel_neighbours(self, img, x, y):
-        neighbours = []
-        startx = -1 
-        endx = 2
-        starty = -1 
-        endy = 2
-
-        if x + 1 >= len(img):
-            endx = 1
-
-        if x == 0:
-            startx = 0
-
-        if y + 1 >= len(img[0]):
-            endy = 1
-
-        if y == 0:
-            starty = 0
-
-        if len(neighbours) == 0:
-            for i in range(startx, endx):
-                n1 = []
-                for j in range(starty, endy):
-                    #if i == 0 and j == 0:
-                    # continue
-                # else:
-                    n1.append(img[x+i][y+j])
-                #print(n1)
-                neighbours.append(n1)
-        return np.array(neighbours)
-    
-
+    # def find_pixel_neighbours(self, img, x, y):
+    #     pad_img = np.pad(img, ((1,1),(1,1),(0,0)), mode='constant')
+    #     neighbours = pad_img[x:x+3, y:y+3]
+    #     return neighbours
 
     def find_HSV_colour_in_image(self, img):
-
-        print(len(img), len(img[0]))
-
-        
         hsv_img = cv.cvtColor(img, cv.COLOR_BGR2HSV)
-
         color_masks = {
             "orange": cv.inRange(hsv_img, np.array([10, 30, 30]), np.array([25, 255, 255])),
             "yellow": cv.inRange(hsv_img, np.array([25, 30, 30]), np.array([35, 255, 255])),
@@ -74,20 +41,21 @@ class RGBShapeDetection:
             "red_back": cv.inRange(hsv_img, np.array([0, 30, 30]), np.array([10, 255, 255])),
             "red_front": cv.inRange(hsv_img, np.array([170, 30, 30]), np.array([180, 255, 255])),
             "black": cv.inRange(hsv_img, np.array([0, 0, 0]), np.array([180, 255, 30])),
-            "white": cv.inRange(hsv_img, np.array([0, 0, 30]), np.array([180, 30, 255]))
+            "white": cv.inRange(hsv_img, np.array([0, 0, 30]), np.array([180, 30, 255])),
+            "grey": cv.inRange(hsv_img, np.array([0, 0, 20]), np.array([180, 30, 230])) 
         }
 
         for color, mask in color_masks.items():
             img[mask > 0] = self.index_bgr[color]
+        cv.imshow("txt", img)        # import matplotlib
+        cv.waitKey(0)
+        return img
 
-        return img            
-
-
-    def find_RGB_colour_in_image(self, img):
+    def find_BGR_colour_in_image(self, img):
         new_array = np.zeros((len(img), len(img[0]), 3), np.uint8, 'C')
         
         counter = [0, 0]
-        np.set_printoptions(threshold=np. inf)
+        # np.set_printoptions(threshold=np. inf)
         for i in range(0, len(img)):
             for j in range(0, int(len(img[i]))):
                 
@@ -104,20 +72,25 @@ class RGBShapeDetection:
                 new_b = 0
                 
 
+                
+                
+                if r <= 200 and r > 20 and g <= 200 and g > 20 and b <= 200 and b > 20 and abs(r - b) < 40 and abs(r - g) < 40 and abs(g - b) < 40 and new_r == 0 and new_b == 0 and new_g == 0:
+                    new_r = 140
+                    new_g = 140
+                    new_b = 140
                 #WHITE DOMINANT COLOUR
-                if r >= 175 and g >= 175 and b >= 175:
+                elif r >= 200 and g >= 200 and b >= 200:
                     new_r = 255
                     new_g = 255
                     new_b = 255
-                
                 #BLACK DOMINANT COLOUR
-                elif r <= 50 and g <= 50 and b <= 50:
+                elif r <= 50 and g <= 50 and b <= 50 and new_r == 0 and new_b == 0 and new_g == 0:
                     new_r = 0
                     new_g = 0
                     new_b = 0
                 
                 #RED DOMINANT COLOUR
-                elif r >= g and r > b:
+                elif r >= g and r > b and new_r == 0 and new_b == 0 and new_g == 0:
                     if g / r > 0.4:
                         if g/r > 0.75:
                             #YELLOW
@@ -134,7 +107,7 @@ class RGBShapeDetection:
 
 
                 #GREEN DOMINANT COLOUR
-                elif g >= r and g >= b:
+                elif g >= r and g >= b and new_r == 0 and new_b == 0 and new_g == 0:
                     if r / g > 0.5:
                         if r/g > 0.75:
                             #YELLOW
@@ -155,7 +128,7 @@ class RGBShapeDetection:
                 
 
                 #BLUE DOMINANT COLOUR
-                elif b >= r and b >= g:
+                elif b >= r and b >= g and new_r == 0 and new_b == 0 and new_g == 0:
                     if g / b > 0.5:
                         if g/b > 0.75:
                             #CYAN
@@ -181,7 +154,7 @@ class RGBShapeDetection:
                     new_b = 255
                 
                 #UNKNOWN
-                else:
+                elif new_r == 0 and new_b == 0 and new_g == 0:
                     print(img[i][j])
                     new_r = 0
                     new_g = 0
@@ -192,35 +165,92 @@ class RGBShapeDetection:
             counter[0] += 1
 
         print(counter)
+        # r, g, b = img[:, :, 2], img[:, :, 1], img[:, :, 0]
+        # new_r, new_g, new_b = np.zeros_like(r), np.zeros_like(g), np.zeros_like(b)
+
+        # white_indices = (r >= 175) & (g >= 175) & (b >= 175)
+        # black_indices = (r <= 50) & (g <= 50) & (b <= 50)
+        # red_indices = (r > g) & (r > b) & (g / r <= 0.8) & (b / r <= 0.8)  # Condition for red
+        # green_indices = (g > r) & (g > b) & (r / g <= 0.8) & (b / g <= 0.8)  # Condition for green
+        # blue_indices = (b > r) & (b > g) & (g / b <= 0.8) & (r / b <= 0.8)  # Condition for blue
+        # gray_indices = (r <= 200) & (r > 20) & (g <= 200) & (g > 20) & (b <= 200) & (b > 20) & (abs(r - b) < 40) & (abs(r - g) < 40) & (abs(g - b) < 40)  # Condition for gray
+
+        # new_r[white_indices] = 255
+        # new_g[white_indices] = 255
+        # new_b[white_indices] = 255
+
+        # new_r[black_indices] = 0
+        # new_g[black_indices] = 0
+        # new_b[black_indices] = 0
+
+        # new_r[red_indices] = 255
+        # new_g[red_indices] = np.where(g[red_indices] / r[red_indices] > 0.75, 0, np.where(g[red_indices] / r[red_indices] <= 0.75, 165, 0))  # Set green to 0 if red, else 165
+        # new_b[red_indices] = np.where(b[red_indices] / r[red_indices] > 0.55, 0, 0)  # Ensure red remains red
+
+        # new_g[green_indices] = 255
+        # new_r[green_indices] = np.where(r[green_indices] / g[green_indices] > 0.75, 150, np.where(r[green_indices] / g[green_indices] <= 0.75, 0, 0))  # Ensure red remains unchanged, else 150
+        # new_b[green_indices] = np.where(b[green_indices] / g[green_indices] > 0.6, 0, 0)  # Ensure green remains green
+
+        # new_b[blue_indices] = 255
+        # new_g[blue_indices] = np.where(g[blue_indices] / b[blue_indices] > 0.75, 255, np.where(g[blue_indices] / b[blue_indices] <= 0.75, 157, 255))  # Set green to 255 if blue, else 157
+        # new_r[blue_indices] = np.where(r[blue_indices] / b[blue_indices] > 0.5, 0, 0)  # Ensure blue remains blue
+
+        # new_r[gray_indices] = 140
+        # new_g[gray_indices] = 140
+        # new_b[gray_indices] = 140
+
+        # new_array = np.dstack((new_b, new_g, new_r))  # Return the merged BGR image
+        # # # Update only if the pixel corresponds to a defined color
+        # print("New array shape after processing:", new_array.shape)  # Add this line
+        # cv.imshow("txt", new_array)        # import matplotlib
+        # cv.waitKey(0)
+
+        
         return new_array
 
+
     def is_edge_of_shape(self, array, threshold_start: int, threshold_end: int):
-        id = array[1][1]
-        #print(id, "id")
-        counter = 0
-        for a in array:
-            for each in a:
-                if not np.array_equal(each, id):
-                    counter += 1
+        # print("Array shape:", array.shape)
+        # print(array)
+        center_pixel = array[0, 0, 1, 1, 1]
+        count = np.count_nonzero(array != center_pixel)
+        return threshold_start <= count <= threshold_end
+    
+    def is_edge_of_shape_vectorized(self, array, threshold_start: int, threshold_end: int):
+        center_pixels = array[:, :, 0, 1, :]  # Extract center pixels from each neighborhood
+        differences = np.sum(array != center_pixels[..., np.newaxis, np.newaxis], axis=(-3, -2, -1))  # Count differences
+        edge_pixels = (threshold_start <= differences) & (differences <= threshold_end)  # Determine edge pixels
+        return edge_pixels[...]  # Add singleton dimension for compatibility
         
-        return counter >= threshold_start and counter <= threshold_end
-
     def find_all_shape_edges(self, filtered_img, threshold_start, threshold_end):
-        
-        edge_colours = {}
-        for k in self.index_bgr.keys():
-            if k == "red_back" or k == "red_front":
-                continue
-            edge_colours[k] = []
+        # Initialize edge_colours dictionary
+        edge_colours = {k: [] for k in self.index_bgr if k not in ["red_back", "red_front"]}
+            
+        # Padding the image to handle boundary pixels
+        padded_img = np.pad(filtered_img, ((1,1),(1,1),(0,0)), mode='constant', constant_values=0)
+            
+        # Create 3x3 neighborhood arrays around each pixel using sliding window
+        ninebynine_arrays = np.lib.stride_tricks.sliding_window_view(padded_img, (3,3,3))
+        print("Sliding window view shape:", ninebynine_arrays.shape)
 
-        colour_edges = np.zeros((len(filtered_img), len(filtered_img[0]), 3), np.uint8, 'C')
-        for i in range(len(filtered_img)):
-            for j in range(len(filtered_img[i])):
-                ninebynine = self.find_pixel_neighbours(filtered_img, i, j)
-                if self.is_edge_of_shape(ninebynine, threshold_start, threshold_end):
-                    colour_edges[i][j] = filtered_img[i][j]
-                    edge_colours[self.reversed_index_bgr[str(filtered_img[i][j])]].append([i, j])
+        # Perform edge detection on all neighborhoods simultaneously
+        edge_masks = self.is_edge_of_shape_vectorized(ninebynine_arrays, threshold_start, threshold_end)
+        print("Shape of edge mask: " + str(edge_masks.shape))
 
+        # Extract pixels where edge detection is true
+        colour_edges = filtered_img[edge_masks]
+        print("colouredges image shape:", colour_edges.shape)  # Add this line
+
+        # Reshape colour_edges to match the shape of the original image
+        colour_edges = colour_edges.reshape(filtered_img.shape)
+            
+            # Get coordinates of edge pixels
+            # rows, cols = np.nonzero(colour_edges)
+            # for row, col in zip(rows, cols):
+            #     edge_colours[self.reversed_index_bgr[str(filtered_img[row, col])]].append([row, col])
+
+        cv.imshow("txt", colour_edges)        # import matplotlib
+        cv.waitKey(0)
         return colour_edges, edge_colours
 
     def extract_shapes_from_np(self, colour_data: dict, zoning_threshold_x: int, zoning_threshold_y: int): 

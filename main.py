@@ -82,6 +82,7 @@ class DivingVisualTracker:
         self.id = 1
         self.videoAnalysis.read_frame(first_frame)
         if 0 == self.videoAnalysis.start_HSV_shape_detection(False, [], x, y, nstart, nend):
+            
             self.reference_frame = self.videoAnalysis.reference_frame
             self.shape_frame = self.videoAnalysis.all_colour_frames[1]
 
@@ -833,7 +834,7 @@ class SportsAppShapeDetection(QWidget):
             self.divingBackend.start_RGB_shape_detetion(self.divingBackend.currentframe, self.pixel_neighbour_min, self.pixel_neighbour_max, self.shape_zoning_x, self.shape_zoning_y)
         elif self.image_processing_mode == "HSV":
             self.divingBackend.start_HSV_shape_detetion(self.divingBackend.currentframe, self.pixel_neighbour_min, self.pixel_neighbour_max, self.shape_zoning_x, self.shape_zoning_y)
-        
+
 
         # Show the processed image
         self.showImages(self.divingBackend.reference_frame, self.divingBackend.shape_frame)

@@ -40,7 +40,7 @@ class ImageAnalysisMain:
         print("Completed shape border extraction in: " + str(time.time() - temp) + " seconds")
         print("Total Elapsed Time: " + str(time.time() - self.time) + " seconds")
         temp = time.time()
-
+        
         self.reference_frame = self.current_frame
         
         self.shape_dictionary = self.shapeTool.extract_shapes_from_np(self.current_colour_dictionary, zoning_threshold_x, zoning_threshold_y)

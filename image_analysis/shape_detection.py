@@ -2,6 +2,8 @@
 
 import cv2 as cv
 import numpy as np
+from collections import defaultdict
+
 
 class RGBShapeDetection:
     def __init__(self):
@@ -47,8 +49,7 @@ class RGBShapeDetection:
 
         for color, mask in color_masks.items():
             img[mask > 0] = self.index_bgr[color]
-        cv.imshow("txt", img)        # import matplotlib
-        cv.waitKey(0)
+
         return img
 
     def find_BGR_colour_in_image(self, img):
@@ -216,42 +217,116 @@ class RGBShapeDetection:
         count = np.count_nonzero(array != center_pixel)
         return threshold_start <= count <= threshold_end
     
-    def is_edge_of_shape_vectorized(self, array, threshold_start: int, threshold_end: int):
-        center_pixels = array[:, :, 0, 1, :]  # Extract center pixels from each neighborhood
-        differences = np.sum(array != center_pixels[..., np.newaxis, np.newaxis], axis=(-3, -2, -1))  # Count differences
-        edge_pixels = (threshold_start <= differences) & (differences <= threshold_end)  # Determine edge pixels
-        return edge_pixels[...]  # Add singleton dimension for compatibility
+    def is_edge_of_shape_vectorized(self, neighbors, threshold_start: int, threshold_end: int):
+        center_pixel_values = neighbors[:, :, 0, 1, 1, :]
+        # print(center_pixel_values.shape)
+        # Create an array containing the center pixel values replicated along the new dimensions
+        center_pixel_array = center_pixel_values[:, :, np.newaxis, np.newaxis, np.newaxis, :]
+
+        # Repeat along the appropriate axes to match the desired shape
+        # center_pixel_array = np.repeat(center_pixel_array, 3, axis=3)  # Repeat for each color channel
+        center_pixel_array = np.repeat(center_pixel_array, 3, axis=3)  # Repeat along the 3x3 grid horizontally
+        center_pixel_array = np.repeat(center_pixel_array, 3, axis=4)  # Repeat along the 3x3 grid vertically
+
+        # Now, the shapes of the two arrays should be compatible for subtraction
+        difference = np.abs(center_pixel_array - neighbors)
+        # print(difference.shape)
+
+
+        # Count the number of different pixels
+        num_different_pixels = np.sum(difference > 0, axis=(-1, -2))
+
+        # Sum along both axes (-1 and -2) to collapse them into a single axis
+        num_different_pixels_collapsed = np.sum(num_different_pixels, axis=-1)        
+        # print(num_different_pixels_collapsed.shape)
+
+        # Check if the number of different pixels is within the specified range
+        in_range = (num_different_pixels_collapsed >= threshold_start) & (num_different_pixels_collapsed <= threshold_end)
+        in_range_repeated = np.repeat(in_range[...], 3, axis=-1)  # Repeat along the last axis (color channels)
+        # print(in_range_repeated)
+        
+        return in_range_repeated
+    
+    
         
     def find_all_shape_edges(self, filtered_img, threshold_start, threshold_end):
+        def sliding_window_view(arr, window_shape):
+            arr = np.asarray(arr)
+            window_shape = tuple(window_shape)
+            strides = arr.strides + arr.strides
+            shape = tuple(np.subtract(arr.shape, window_shape) + 1) + window_shape
+            strides = arr.strides + arr.strides
+            return np.lib.stride_tricks.as_strided(arr, shape=shape, strides=strides)
         # Initialize edge_colours dictionary
         edge_colours = {k: [] for k in self.index_bgr if k not in ["red_back", "red_front"]}
             
         # Padding the image to handle boundary pixels
         padded_img = np.pad(filtered_img, ((1,1),(1,1),(0,0)), mode='constant', constant_values=0)
-            
+        # print("padded image shape", padded_img.shape)
+        # print("padded image", padded_img)
         # Create 3x3 neighborhood arrays around each pixel using sliding window
-        ninebynine_arrays = np.lib.stride_tricks.sliding_window_view(padded_img, (3,3,3))
-        print("Sliding window view shape:", ninebynine_arrays.shape)
+        window_shape = (3, 3, 3)
+
+        ninebynine_arrays = sliding_window_view(padded_img, window_shape)
+        # print("Sliding window view shape:", ninebynine_arrays.shape, ninebynine_arrays)
 
         # Perform edge detection on all neighborhoods simultaneously
         edge_masks = self.is_edge_of_shape_vectorized(ninebynine_arrays, threshold_start, threshold_end)
-        print("Shape of edge mask: " + str(edge_masks.shape))
+        # print("Shape of edge mask: " + str(edge_masks.shape))
 
         # Extract pixels where edge detection is true
-        colour_edges = filtered_img[edge_masks]
-        print("colouredges image shape:", colour_edges.shape)  # Add this line
+
+        colors_image = np.copy(filtered_img)
+        colors_image[~edge_masks]= -1
+        # print("colouredges image shape:", colors_image.shape)  # Add this line
+        # cv.imshow("yes", colors_image)
+        # cv.waitKey(0)
+
+        # Get unique non-black colors
+        # Create a mask for non-black pixels
+        non_black_mask = np.any(colors_image != [None, None, None], axis=-1)
+        # Get the pixel values for non-black pixels
+        non_black_pixels = colors_image[non_black_mask]
+
+        # Convert the pixel values to tuples
+        # pixel_strings = [str(np.array(pixel)) for pixel in non_black_pixels]
+
+        # Get the indices of non-black pixels
+        # non_black_coords = np.argwhere(non_black_mask)
+        color_dictionary = {}
+        # Create a dictionary to store each color
+        for color in self.index_bgr.keys():
+            # Create a mask for pixels of the current color
+            mask = np.all(colors_image == self.index_bgr[color], axis=-1)
+            # Check if any pixels match the color
+            if np.any(mask):
+                # Get the coordinates of pixels for the current color
+                coordinates = np.argwhere(mask)
+                # Add the coordinates to the color dictionary
+                color_dictionary[color] = coordinates.tolist()
+
+        # Use NumPy indexing to directly populate the color dictionary
+        # for coord, pixel_str in zip(non_black_coords, pixel_strings):
+        #     color_dictionary[self.reversed_index_bgr[pixel_str]].append(tuple(coord))
+
+        for color_key in self.index_bgr.keys():
+            # Check if the color key is not present in the color dictionary
+            if color_key not in color_dictionary:
+                # Add the missing color key with an empty list
+                color_dictionary[color_key] = []
 
         # Reshape colour_edges to match the shape of the original image
-        colour_edges = colour_edges.reshape(filtered_img.shape)
+        # colour_edges = colour_edges.reshape(filtered_img.shape)
             
             # Get coordinates of edge pixels
             # rows, cols = np.nonzero(colour_edges)
             # for row, col in zip(rows, cols):
             #     edge_colours[self.reversed_index_bgr[str(filtered_img[row, col])]].append([row, col])
-
-        cv.imshow("txt", colour_edges)        # import matplotlib
-        cv.waitKey(0)
-        return colour_edges, edge_colours
+        colors_image[~edge_masks] = 0
+        # cv.imshow("txt", colour_edges)        # import matplotlib
+        # cv.waitKey(0)
+        print("end")
+        return colors_image, color_dictionary
 
     def extract_shapes_from_np(self, colour_data: dict, zoning_threshold_x: int, zoning_threshold_y: int): 
         def find_zone(vertex: tuple, zones: dict):

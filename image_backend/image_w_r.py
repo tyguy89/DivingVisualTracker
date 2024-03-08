@@ -3,28 +3,7 @@
 import numpy as np
 import cv2 as cv
 
-def frame_count(video_path, manual=False):
-    def manual_count(handler):
-        frames = 0
-        while True:
-            status, frame = handler.read()
-            if not status:
-                break
-            frames += 1
-        return frames 
 
-    cap = cv.VideoCapture(video_path)
-    # Slow, inefficient but 100% accurate method 
-    if manual:
-        frames = manual_count(cap)
-    # Fast, efficient but inaccurate method
-    else:
-        try:
-            frames = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
-        except:
-            frames = manual_count(cap)
-    cap.release()
-    return frames
 
 class FileReader:
     def __init__(self):
@@ -90,8 +69,8 @@ class FileReader:
                 # cv2.imshow('video', frame)
 
                 # store the current frame in as a numpy array
-                np_frame = cv.imread('video', frame)
-                images.append(np_frame)
+                # np_frame = cv.imread(frame)
+                images.append(frame)
                 
                 counter -= 1
             else:
@@ -102,3 +81,35 @@ class FileReader:
 
 
         return images
+    
+    def frame_count(self, video_path: str, manual=False):
+        def manual_count(handler):
+            frames = 0
+            while True:
+                status, frame = handler.read()
+                if not status:
+                    print("issue")
+                    break
+                frames += 1
+            return frames 
+            
+        cap = cv.VideoCapture(video_path)
+        # Slow, inefficient but 100% accurate method 
+        if manual:
+            frames = manual_count(cap)
+        # Fast, efficient but inaccurate method
+        else:
+            try:
+                frames = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
+            except:
+                print("issue")
+                frames = manual_count(cap)
+        cap.release()
+        return frames
+
+
+if __name__ == "__main__":
+    vid = FileReader()
+
+    path = "python_projects\\DivingVisualTracker\\image_backend\\20240130_172052.mp4"
+

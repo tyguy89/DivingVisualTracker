@@ -1,6 +1,7 @@
 
 import cv2
 import numpy as np
+import time
 
 from .shape_detection import RGBShapeDetection
 
@@ -12,6 +13,8 @@ class ImageAnalysisMain:
         self.reference_frame = None
         self.current_colour_dictionary = None
         self.shape_dictionary = None
+        self.time = 0
+
 
 
     def read_frame(self, frame: np.array):
@@ -23,30 +26,49 @@ class ImageAnalysisMain:
 
 
     def start_RGB_shape_detection(self, extract_background: bool, extract_colours: list, zoning_threshold_x: int, zoning_threshold_y: int, neighbour_start: int, neighbour_end: int):
+        self.time = time.time()
         assert self.current_frame is not None and neighbour_start <= neighbour_end
-        self.current_frame = self.shapeTool.find_RGB_colour_in_image(self.current_frame)
+        self.current_frame = self.shapeTool.find_BGR_colour_in_image(self.current_frame)
+        temp = time.time()
+        print("Completed RGB colour filtering in: " + str(time.time() - self.time) + " seconds")
+        print("Total Elapsed Time: " + str(time.time() - self.time) + " seconds")
+        
 
         self.all_colour_frames.append(self.current_frame)
 
         self.current_frame, self.current_colour_dictionary = self.shapeTool.find_all_shape_edges(self.current_frame, neighbour_start, neighbour_end)
+        print("Completed shape border extraction in: " + str(time.time() - temp) + " seconds")
+        print("Total Elapsed Time: " + str(time.time() - self.time) + " seconds")
+        temp = time.time()
+        
         self.reference_frame = self.current_frame
         
         self.shape_dictionary = self.shapeTool.extract_shapes_from_np(self.current_colour_dictionary, zoning_threshold_x, zoning_threshold_y)
+        print("Completed shape zoning: " + str(time.time() - temp) + " seconds")
+        print("Total Elapsed Time: " + str(time.time() - self.time) + " seconds")
 
         return 0
     
     def start_HSV_shape_detection(self, extract_background: bool, extract_colours: list, zoning_threshold_x: int, zoning_threshold_y: int, neighbour_start: int, neighbour_end: int):
+        self.time = time.time()
 
         assert self.current_frame is not None and neighbour_start <= neighbour_end
         self.current_frame = self.shapeTool.find_HSV_colour_in_image(self.current_frame)
+        temp = time.time()
+        print("Completed HSV colour filtering in: " + str(time.time() - self.time) + " seconds")
+        print("Total Elapsed Time: " + str(time.time() - self.time) + " seconds")
 
         self.all_colour_frames.append(self.current_frame)
 
         self.current_frame, self.current_colour_dictionary = self.shapeTool.find_all_shape_edges(self.current_frame, neighbour_start, neighbour_end)
+        print("Completed shape border extraction in: " + str(time.time() - temp) + " seconds")
+        print("Total Elapsed Time: " + str(time.time() - self.time) + " seconds")
+        temp = time.time()
         self.reference_frame = self.current_frame
         
         self.shape_dictionary = self.shapeTool.extract_shapes_from_np(self.current_colour_dictionary, zoning_threshold_x, zoning_threshold_y)
-
+        print("Completed shape zoning: " + str(time.time() - temp) + " seconds")
+        print("Total Elapsed Time: " + str(time.time() - self.time) + " seconds")
         return 0
 
     def start_combined_shape_detection():
@@ -75,7 +97,7 @@ class ImageAnalysisMain:
     
     def extract_colour_by_dict(self, img, colour_to_extract):
         if colour_to_extract == "black":
-            colour_edges = np.ones((len(img), len(img[0]), 3), np.uint8, 'C')
+            colour_edges = np.ones((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), dtype=np.uint8) * 255
         else:
             colour_edges = np.zeros((len(img), len(img[0]), 3), np.uint8, 'C')
 
@@ -87,7 +109,7 @@ class ImageAnalysisMain:
 
     def extract_colour_by_pixel(self, img, colour_to_extract):
         if colour_to_extract == "black":
-            colour_edges = np.ones((len(img), len(img[0]), 3), np.uint8, 'C')
+            colour_edges = np.ones((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), dtype=np.uint8) * 255
         else:
             colour_edges = np.zeros((len(img), len(img[0]), 3), np.uint8, 'C')
 
@@ -100,7 +122,9 @@ class ImageAnalysisMain:
     
     def draw_specific_shape(self, current_colour, current_shape_id):
         if current_colour == "black":
-            blank = np.ones((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), np.uint8, 'C')
+
+            blank = np.ones((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), dtype=np.uint8) * 255
+            
         
         else:
             blank = np.zeros((len(self.blank_sized_canvas), len(self.blank_sized_canvas[0]), 3), np.uint8, 'C')
@@ -108,6 +132,8 @@ class ImageAnalysisMain:
         if self.shape_dictionary[current_colour][current_shape_id] is None:
             return None
         
+        print(self.shape_dictionary[current_colour][current_shape_id][1])
+
         for pixels in self.shape_dictionary[current_colour][current_shape_id][1]:
             # - Shape is (x1, x2, y1, y2) [pixels]
             blank[pixels[0]][pixels[1]] = self.shapeTool.index_bgr[current_colour]
@@ -128,6 +154,19 @@ class ImageAnalysisMain:
                 blank[pixels[0]][pixels[1]] = self.shapeTool.index_bgr[shape[1]]
            
         return blank
+    
+    def draw_list_of_shapes_on_picture(self, pic, shape_list):
+        """
+        shape_list elements in the form (id, colour)
+        """
+        
+        for shape in shape_list:
+            if self.shape_dictionary[shape[1]][shape[0]] is None:
+                return None
+            for pixels in self.shape_dictionary[shape[1]][shape[0]][1]:
+                pic[pixels[0]][pixels[1]] = self.shapeTool.index_bgr[shape[1]]
+           
+        return pic
 
     def remove_colour(self, img, colour_data: dict, colour_to_delete):
         for i in colour_data[colour_to_delete]:
@@ -154,3 +193,8 @@ class ImageAnalysisMain:
                 canvas[i[0]][i[1]] = color_lottery[shape]
 
         return canvas
+    
+    def fill_white(self, x, y):
+        # return np.tile(np.array([255,255,255]),(x,y))
+        pass
+        

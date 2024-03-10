@@ -38,6 +38,3 @@ class VideoReader:
 
     def set_source(self, path: str):
         self.source = path
-
-    def get_video_length_source(self, manual: bool)-> int:
-        return self.readingTool.frame_count(self.source, manual)
